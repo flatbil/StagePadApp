@@ -1,0 +1,17 @@
+# Xcode
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS / exFAT
+.DS_Store
+._*
+**/._.DS_Store
+
+# Swift Package Manager
+.build/
