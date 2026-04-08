@@ -81,7 +81,7 @@ final class BridgeService: ObservableObject {
     private var activeHost: String = ""
 
     var host: String {
-        get { UserDefaults.standard.string(forKey: "bridge_host") ?? "10.0.0.101" }
+        get { UserDefaults.standard.string(forKey: "bridge_host") ?? "192.168.4.29" }
         set { UserDefaults.standard.set(newValue, forKey: "bridge_host") }
     }
 
@@ -320,6 +320,10 @@ final class BridgeService: ObservableObject {
             activateSection(songIndex: songIndex, sectionIndex: sectionIndex, fromBeat: targetPosition)
         }
         send(["type": "jump", "song_index": songIndex, "section_index": sectionIndex])
+    }
+
+    func generateCues(trackName: String = "Cues") {
+        send(["type": "generate_cues", "track_name": trackName])
     }
 
     func play() {

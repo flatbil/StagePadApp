@@ -14,6 +14,7 @@ struct StagePadApp: App {
 
                 if showLaunch {
                     LaunchScreenView(connectionState: bridge.connectionState)
+                        .environmentObject(bridge)
                         .transition(.opacity)
                         .zIndex(1)
                 }

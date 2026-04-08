@@ -5,7 +5,7 @@ struct InfoBarView: View {
     let currentSongName: String
     let currentSectionName: String
     let tempo: Double
-    let position: Double
+    let measure: Int
     let statusColor: Color
     let onSettingsTap: () -> Void
 
@@ -26,7 +26,7 @@ struct InfoBarView: View {
             infoCell(label: "BPM", value: tempo > 0 ? String(format: "%.1f", tempo) : "—")
                 .frame(width: 90)
             divider
-            infoCell(label: "BEAT", value: String(format: "%.1f", position))
+            infoCell(label: "BAR", value: "\(measure)")
                 .frame(width: 90)
             divider
             controls

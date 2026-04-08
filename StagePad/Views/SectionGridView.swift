@@ -5,8 +5,6 @@ struct SectionGridView: View {
     let selectedSongIndex: Int
     let currentSongIndex: Int
     let currentSectionIndex: Int
-    let currentPosition: Double
-    let nextSongStartPosition: Double?  // start of the following song, for last-section progress
     let onTap: (Int) -> Void
 
     var body: some View {
@@ -22,18 +20,12 @@ struct SectionGridView: View {
             ScrollView {
                 LazyVGrid(columns: gridColumns, spacing: spacing) {
                     ForEach(Array(song.sections.enumerated()), id: \.offset) { sectionIndex, section in
-                        let isLastSection = sectionIndex + 1 == song.sections.count
-                        let next: Double? = !isLastSection
-                            ? song.sections[sectionIndex + 1].position
-                            : nextSongStartPosition
                         SectionButtonWrapper(
                             section: section,
                             sectionIndex: sectionIndex,
-                            nextSectionPosition: next,
                             selectedSongIndex: selectedSongIndex,
                             currentSongIndex: currentSongIndex,
                             currentSectionIndex: currentSectionIndex,
-                            currentPosition: currentPosition,
                             onTap: { onTap(sectionIndex) }
                         )
                         .frame(height: btnHeight)

@@ -2,7 +2,9 @@ import SwiftUI
 
 struct LaunchScreenView: View {
     let connectionState: ConnectionState
+    @EnvironmentObject var bridge: BridgeService
     @State private var pulsing = false
+    @State private var showingSettings = false
 
     var body: some View {
         ZStack {
@@ -41,8 +43,25 @@ struct LaunchScreenView: View {
                 }
                 .padding(.bottom, 50)
             }
+
+            // Settings button — always accessible so IP can be set while connecting
+            VStack {
+                HStack {
+                    Spacer()
+                    Button { showingSettings = true } label: {
+                        Image(systemName: "gear")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.black.opacity(0.3))
+                            .padding(20)
+                    }
+                }
+                Spacer()
+            }
         }
         .onAppear { pulsing = true }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView().environmentObject(bridge)
+        }
     }
 
     private var statusLabel: String {

@@ -4,35 +4,133 @@ struct SettingsView: View {
     @EnvironmentObject var bridge: BridgeService
     @Environment(\.dismiss) private var dismiss
     @State private var hostInput: String = ""
+    @State private var cueTrackName: String = "Cues"
+    @State private var cueGenerating: Bool = false
+    @State private var cueGenerateDone: Bool = false
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Bridge Connection")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal)
 
-                VStack(spacing: 0) {
-                    TextField("Mac IP Address", text: $hostInput)
-                        .keyboardType(.decimalPad)
-                        .autocorrectionDisabled()
-                        .padding()
-
-                    Divider()
-
-                    Text("ws://\(hostInput):8766/ws")
+                // Connection info
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Auto-Discovery")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 6)
+
+                    VStack(spacing: 0) {
+                        HStack {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                                .foregroundStyle(.secondary)
+                            Text("The app finds the bridge automatically via Bonjour. When the iPad is connected via USB-C, it uses that connection instead of Wi-Fi.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
                         .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
                 }
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .padding(.horizontal)
+
+                // Manual fallback
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Manual Fallback IP")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 6)
+
+                    VStack(spacing: 0) {
+                        TextField("Mac IP Address (e.g. 10.0.0.101)", text: $hostInput)
+                            .keyboardType(.decimalPad)
+                            .autocorrectionDisabled()
+                            .padding()
+
+                        Divider()
+
+                        Text("Used only if Bonjour discovery times out (3 s). Find the Mac's IP in System Settings → Network.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                }
+
+                // Cue generation
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Auto-Generate Markers")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 6)
+
+                    VStack(spacing: 0) {
+                        HStack {
+                            Text("Cues track name")
+                                .foregroundStyle(.secondary)
+                                .font(.footnote)
+                            Spacer()
+                            TextField("Cues", text: $cueTrackName)
+                                .multilineTextAlignment(.trailing)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                                .frame(width: 120)
+                        }
+                        .padding()
+
+                        Divider()
+
+                        Text("Scans the named Ableton track for arrangement clips and creates cue markers from their names and positions. Name clips \u{201C}== Song Name ==\u{201D} for song headers or \u{201C}Chorus\u{201D}, \u{201C}Verse 1\u{201D} etc. for sections.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Divider()
+
+                        Button(action: {
+                            cueGenerating = true
+                            cueGenerateDone = false
+                            bridge.generateCues(trackName: cueTrackName.isEmpty ? "Cues" : cueTrackName)
+                            // The bridge takes ~1s to process — show feedback then clear
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                cueGenerating = false
+                                cueGenerateDone = true
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+                                cueGenerateDone = false
+                            }
+                        }) {
+                            HStack(spacing: 8) {
+                                if cueGenerating {
+                                    ProgressView().tint(.purple)
+                                } else if cueGenerateDone {
+                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                } else {
+                                    Image(systemName: "wand.and.stars")
+                                }
+                                Text(cueGenerateDone ? "Markers generated" : "Generate from \(cueTrackName.isEmpty ? "Cues" : cueTrackName)")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                        }
+                        .disabled(cueGenerating || bridge.connectionState != .connected)
+                    }
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                }
 
                 // Reconnect button
                 Button(action: {
+                    bridge.host = hostInput
                     bridge.connect()
                     dismiss()
                 }) {

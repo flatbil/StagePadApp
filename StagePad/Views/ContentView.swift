@@ -17,6 +17,15 @@ struct ContentView: View {
         return song.sections[bridge.currentSectionIndex].name
     }
 
+    private var currentMeasure: Int {
+        guard bridge.songs.indices.contains(bridge.currentSongIndex) else { return 1 }
+        let sections = bridge.songs[bridge.currentSongIndex].sections
+        guard sections.indices.contains(bridge.currentSectionIndex) else { return 1 }
+        let sectionStart = sections[bridge.currentSectionIndex].position
+        let beatInSection = max(0, bridge.position - sectionStart)
+        return max(1, Int(beatInSection / Double(bridge.timeSignatureNumerator)) + 1)
+    }
+
     private var statusColor: Color {
         switch bridge.connectionState {
         case .connected:    return .green
@@ -34,7 +43,7 @@ struct ContentView: View {
                     currentSongName: currentSongName,
                     currentSectionName: currentSectionName,
                     tempo: bridge.tempo,
-                    position: bridge.position,
+                    measure: currentMeasure,
                     statusColor: statusColor,
                     onSettingsTap: { showingSettings = true }
                 )
@@ -47,15 +56,11 @@ struct ContentView: View {
                 )
 
                 if bridge.songs.indices.contains(selectedSongIndex) {
-                    let nextSongStart: Double? = bridge.songs.indices.contains(selectedSongIndex + 1)
-                        ? bridge.songs[selectedSongIndex + 1].position : nil
                     SectionGridView(
                         song: bridge.songs[selectedSongIndex],
                         selectedSongIndex: selectedSongIndex,
                         currentSongIndex: bridge.currentSongIndex,
                         currentSectionIndex: bridge.currentSectionIndex,
-                        currentPosition: bridge.position,
-                        nextSongStartPosition: nextSongStart,
                         onTap: { bridge.jump(songIndex: selectedSongIndex, sectionIndex: $0) }
                     )
                 } else {
@@ -63,6 +68,7 @@ struct ContentView: View {
                 }
 
                 TransportBarView(
+                    isPlaying: bridge.isPlaying,
                     onPlay: { bridge.play() },
                     onStop: { bridge.stop() }
                 )

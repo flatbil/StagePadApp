@@ -31,7 +31,7 @@
 		59799FA9D05E29EC0A5CCC5C /* LaunchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
 		6390A0FF8C18EB53765C3658 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		674D320082ABDEF45ABCF7EA /* StagePadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StagePadApp.swift; sourceTree = "<group>"; };
-		737E542F681E58C9F1EF6A95 /* StagePad.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = StagePad.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		737E542F681E58C9F1EF6A95 /* StagePad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StagePad.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B3150C010B9BB0019D3901A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		862A04FC9C92DA6CFA92581D /* TransportBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportBarView.swift; sourceTree = "<group>"; };
 		8A1148FF5BC454BFA3CC3F3A /* Song.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Song.swift; sourceTree = "<group>"; };
@@ -131,8 +131,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = 93F88B0DDBB4C63D9A656B13 /* Build configuration list for PBXProject "StagePad" */;
 			developmentRegion = en;
@@ -249,6 +247,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = KNYS4NTTJS;
 				INFOPLIST_FILE = StagePad/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -265,6 +264,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = KNYS4NTTJS;
 				INFOPLIST_FILE = StagePad/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
