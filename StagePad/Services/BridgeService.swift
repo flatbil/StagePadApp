@@ -55,6 +55,12 @@ final class BridgeService: ObservableObject {
     @Published var tempo: Double = 0
     @Published var timeSignatureNumerator: Int = 4
 
+    // Guide track analysis state — observed by SettingsView
+    enum AnalysisState: Equatable {
+        case idle, running, done(bpm: Double, sections: Int), failed
+    }
+    @Published var analysisState: AnalysisState = .idle
+
     // Section timing — read by TimelineView in SectionButtonWrapper at render time.
     // Not @Published: changing these must not trigger re-renders; TimelineView polls them.
     var sectionStartBeat: Double = 0
@@ -256,6 +262,25 @@ final class BridgeService: ObservableObject {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = json["type"] as? String else { return }
 
+        // 0. Analysis result
+        if type == "analyze_guide_result" {
+            let status = json["status"] as? String ?? "error"
+            if status == "done",
+               let bpm = json["bpm"] as? Double,
+               let count = json["section_count"] as? Int {
+                analysisState = .done(bpm: bpm, sections: count)
+            } else {
+                analysisState = .failed
+            }
+            // Auto-clear after 6 seconds
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(6))
+                if case .done = analysisState { analysisState = .idle }
+                if case .failed = analysisState { analysisState = .idle }
+            }
+            return
+        }
+
         // 1. Song list (state message only)
         if type == "state", let songsData = try? JSONSerialization.data(withJSONObject: json["songs"] ?? []) {
             songs = (try? JSONDecoder().decode([Song].self, from: songsData)) ?? []
@@ -324,6 +349,11 @@ final class BridgeService: ObservableObject {
 
     func generateCues(trackName: String = "Cues") {
         send(["type": "generate_cues", "track_name": trackName])
+    }
+
+    func analyzeGuide(trackName: String = "Guide") {
+        analysisState = .running
+        send(["type": "analyze_guide", "track_name": trackName, "model_size": "base"])
     }
 
     func play() {

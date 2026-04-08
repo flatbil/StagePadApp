@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var cueTrackName: String = "Cues"
     @State private var cueGenerating: Bool = false
     @State private var cueGenerateDone: Bool = false
+    @State private var guideTrackName: String = "Guide"
 
     var body: some View {
         NavigationStack {
@@ -122,6 +123,71 @@ struct SettingsView: View {
                             .padding()
                         }
                         .disabled(cueGenerating || bridge.connectionState != .connected)
+                    }
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                }
+
+                // Guide track analysis
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Auto-Generate from Guide Track")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 6)
+
+                    VStack(spacing: 0) {
+                        HStack {
+                            Text("Guide track name")
+                                .foregroundStyle(.secondary)
+                                .font(.footnote)
+                            Spacer()
+                            TextField("Guide", text: $guideTrackName)
+                                .multilineTextAlignment(.trailing)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                                .frame(width: 120)
+                        }
+                        .padding()
+
+                        Divider()
+
+                        Text("Analyzes the audio on the named Ableton track using AI speech recognition. Detects the BPM from the click, reads spoken section cues (\"Verse 1\", \"Chorus\", etc.), and creates all markers automatically. First run downloads the Whisper model (~74 MB).")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Divider()
+
+                        Button(action: {
+                            bridge.analyzeGuide(trackName: guideTrackName.isEmpty ? "Guide" : guideTrackName)
+                        }) {
+                            HStack(spacing: 8) {
+                                switch bridge.analysisState {
+                                case .running:
+                                    ProgressView().tint(.purple)
+                                    Text("Analyzing… (may take a minute)")
+                                        .fontWeight(.semibold)
+                                case .done(let bpm, let count):
+                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                    Text("\(count) sections at \(Int(bpm)) BPM — done!")
+                                        .fontWeight(.semibold)
+                                case .failed:
+                                    Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+                                    Text("Analysis failed — check bridge log")
+                                        .fontWeight(.semibold)
+                                case .idle:
+                                    Image(systemName: "waveform.and.mic")
+                                    Text("Analyze \(guideTrackName.isEmpty ? "Guide" : guideTrackName) Track")
+                                        .fontWeight(.semibold)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                        }
+                        .disabled(bridge.analysisState == .running || bridge.connectionState != .connected)
                     }
                     .background(Color(.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
