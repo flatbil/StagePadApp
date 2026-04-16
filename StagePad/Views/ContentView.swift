@@ -50,6 +50,7 @@ struct ContentView: View {
 
                 SongSelectorView(
                     songs: bridge.songs,
+                    setlistOrder: $bridge.setlistOrder,
                     selectedSongIndex: selectedSongIndex,
                     currentSongIndex: bridge.currentSongIndex,
                     onSelect: { selectedSongIndex = $0 }
@@ -69,6 +70,7 @@ struct ContentView: View {
 
                 TransportBarView(
                     isPlaying: bridge.isPlaying,
+                    isConnected: bridge.connectionState == .connected,
                     onPlay: { bridge.play() },
                     onStop: { bridge.stop() }
                 )

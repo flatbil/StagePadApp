@@ -5,9 +5,12 @@ struct SectionButton: View {
     let color: Color
     let icon: String
     let isActive: Bool
+    var isQueued: Bool = false
     let progress: Double   // 0.0–1.0, only meaningful when isActive
     let danceDate: Date?   // non-nil only when active AND playing; drives icon motion
     let onTap: () -> Void
+
+    @State private var queuePulse = false
 
     var body: some View {
         Button(action: onTap) {
@@ -39,6 +42,15 @@ struct SectionButton: View {
                             .strokeBorder(.white.opacity(0.8), lineWidth: 3)
                     }
 
+                    // Queued-jump pulsing dashed border
+                    if isQueued {
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(
+                                style: StrokeStyle(lineWidth: 3, dash: [8, 5])
+                            )
+                            .foregroundStyle(.white.opacity(queuePulse ? 0.9 : 0.3))
+                    }
+
                     // Label centred over everything
                     Text(label)
                         .font(.system(size: 18, weight: .bold, design: .rounded))
@@ -53,6 +65,22 @@ struct SectionButton: View {
         .buttonStyle(.plain)
         .shadow(color: isActive ? color.opacity(0.6) : .clear, radius: 10)
         .animation(.easeInOut(duration: 0.15), value: isActive)
+        .onChange(of: isQueued) { _, queued in
+            if queued {
+                withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
+                    queuePulse = true
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 0.15)) { queuePulse = false }
+            }
+        }
+        .onAppear {
+            if isQueued {
+                withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
+                    queuePulse = true
+                }
+            }
+        }
     }
 }
 

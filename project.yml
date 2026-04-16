@@ -1,4 +1,4 @@
-name: StagePad
+name: MDBuddy
 options:
   bundleIdPrefix: com.nuthouse
   deploymentTarget:
@@ -10,13 +10,13 @@ settings:
     TARGETED_DEVICE_FAMILY: "1,2"   # iPhone + iPad
 
 targets:
-  StagePad:
+  MDBuddy:
     type: application
     platform: iOS
     sources:
       - path: StagePad
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.nuthouse.StagePad
+        PRODUCT_BUNDLE_IDENTIFIER: com.nuthouse.MDBuddy
         INFOPLIST_FILE: StagePad/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

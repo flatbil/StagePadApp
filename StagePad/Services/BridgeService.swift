@@ -47,6 +47,10 @@ private final class BridgeDiscovery: NSObject, @preconcurrency NetServiceBrowser
 @MainActor
 final class BridgeService: ObservableObject {
     @Published var songs: [Song] = []
+    /// Display order for the song selector. Values are indices into `songs[]`.
+    /// Persisted locally so the setlist survives reconnects.
+    /// Reset to default order whenever the number of songs changes.
+    @Published var setlistOrder: [Int] = []
     @Published var currentSongIndex: Int = -1
     @Published var currentSectionIndex: Int = -1
     @Published var position: Double = 0          // beats from set start — server-side, for measure display
@@ -54,12 +58,10 @@ final class BridgeService: ObservableObject {
     @Published var connectionState: ConnectionState = .disconnected
     @Published var tempo: Double = 0
     @Published var timeSignatureNumerator: Int = 4
-
-    // Guide track analysis state — observed by SettingsView
-    enum AnalysisState: Equatable {
-        case idle, running, done(bpm: Double, sections: Int), failed
-    }
-    @Published var analysisState: AnalysisState = .idle
+    /// Section queued to jump to (awaiting Ableton's beat-quantized confirmation).
+    /// -1 means no jump pending.
+    @Published var queuedSongIndex: Int = -1
+    @Published var queuedSectionIndex: Int = -1
 
     // Section timing — read by TimelineView in SectionButtonWrapper at render time.
     // Not @Published: changing these must not trigger re-renders; TimelineView polls them.
@@ -221,9 +223,17 @@ final class BridgeService: ObservableObject {
 
     private func scheduleAutoAdvance() {
         autoAdvanceTask?.cancel()
-        guard isPlaying, tempo > 0, sectionEndBeat > sectionAnchorBeat else { return }
-        let secondsRemaining = (sectionEndBeat - sectionAnchorBeat) * 60.0 / tempo
-        let fromSong = currentSongIndex
+        guard isPlaying, tempo > 0 else { return }
+
+        // Estimate where we are right now using elapsed wall-clock time since
+        // the last server-confirmed anchor. This keeps the timer accurate after
+        // a tempo change — the old task used the stale bpm and would fire early.
+        let elapsed = Date().timeIntervalSince(sectionAnchorDate)
+        let estimatedBeat = sectionAnchorBeat + elapsed * tempo / 60.0
+        guard sectionEndBeat > estimatedBeat else { return }
+
+        let secondsRemaining = (sectionEndBeat - estimatedBeat) * 60.0 / tempo
+        let fromSong    = currentSongIndex
         let fromSection = currentSectionIndex
         autoAdvanceTask = Task {
             try? await Task.sleep(for: .seconds(secondsRemaining))
@@ -236,23 +246,33 @@ final class BridgeService: ObservableObject {
         // No-op if server already moved us on (guard against double-advance)
         guard currentSongIndex == fromSong, currentSectionIndex == fromSection else { return }
 
-        let nextSong: Int
-        let nextSection: Int
         if songs.indices.contains(fromSong),
            songs[fromSong].sections.indices.contains(fromSection + 1) {
-            nextSong = fromSong
-            nextSection = fromSection + 1
-        } else if songs.indices.contains(fromSong + 1) {
-            nextSong = fromSong + 1
-            nextSection = 0
-        } else {
-            return  // last section of last song
-        }
+            // ── Next section within the same song ─────────────────────────
+            // Ableton plays through naturally; just advance the UI.
+            let nextSection = fromSection + 1
+            currentSongIndex = fromSong
+            currentSectionIndex = nextSection
+            activateSection(songIndex: fromSong, sectionIndex: nextSection, fromBeat: sectionEndBeat)
 
-        currentSongIndex = nextSong
-        currentSectionIndex = nextSection
-        // fromBeat = sectionEndBeat so the new section starts exactly at its boundary
-        activateSection(songIndex: nextSong, sectionIndex: nextSection, fromBeat: sectionEndBeat)
+        } else {
+            // ── End of song — find the next song via setlist order ────────
+            guard let posInSetlist = setlistOrder.firstIndex(of: fromSong),
+                  posInSetlist + 1 < setlistOrder.count else { return }
+            let nextSongIdx = setlistOrder[posInSetlist + 1]
+
+            if nextSongIdx == fromSong + 1 {
+                // Next setlist song is also the next song in Ableton's arrangement,
+                // so Ableton will play into it seamlessly — just update the UI.
+                currentSongIndex = nextSongIdx
+                currentSectionIndex = 0
+                activateSection(songIndex: nextSongIdx, sectionIndex: 0, fromBeat: sectionEndBeat)
+            } else {
+                // Setlist order differs from arrangement order — jump Ableton
+                // to the first section of the next setlist song.
+                jump(songIndex: nextSongIdx, sectionIndex: 0)
+            }
+        }
     }
 
     // MARK: - Message handling
@@ -262,45 +282,40 @@ final class BridgeService: ObservableObject {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = json["type"] as? String else { return }
 
-        // 0. Analysis result
-        if type == "analyze_guide_result" {
-            let status = json["status"] as? String ?? "error"
-            if status == "done",
-               let bpm = json["bpm"] as? Double,
-               let count = json["section_count"] as? Int {
-                analysisState = .done(bpm: bpm, sections: count)
-            } else {
-                analysisState = .failed
-            }
-            // Auto-clear after 6 seconds
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(6))
-                if case .done = analysisState { analysisState = .idle }
-                if case .failed = analysisState { analysisState = .idle }
-            }
-            return
-        }
-
         // 1. Song list (state message only)
         if type == "state", let songsData = try? JSONSerialization.data(withJSONObject: json["songs"] ?? []) {
-            songs = (try? JSONDecoder().decode([Song].self, from: songsData)) ?? []
+            let newSongs = (try? JSONDecoder().decode([Song].self, from: songsData)) ?? []
+            songs = newSongs
+            // Reset setlist order when song count changes (new set loaded).
+            // Preserve a custom order if the count is unchanged (e.g., cue rename).
+            if newSongs.count != setlistOrder.count {
+                if let saved = UserDefaults.standard.array(forKey: "setlistOrder_\(newSongs.count)") as? [Int],
+                   Set(saved) == Set(newSongs.indices) {
+                    setlistOrder = saved
+                } else {
+                    setlistOrder = Array(newSongs.indices)
+                }
+            }
         }
 
         // 2. Metadata first (tempo needed before activateSection)
+        let prevTempo = tempo
         if let t = json["tempo"] as? Double                  { tempo = t }
         if let n = json["time_signature_numerator"] as? Int  { timeSignatureNumerator = n }
 
         // 3. Position — update anchor for TimelineView interpolation
         if let pos = json["position"] as? Double {
             if let target = pendingJumpPosition {
-                // Still waiting for quantization hold to resolve
+                // Still waiting for Ableton's beat-quantized jump to fire
                 if pos >= target - 1.0 {
                     pendingJumpPosition = nil
+                    queuedSongIndex = -1
+                    queuedSectionIndex = -1
                     position = pos
                     sectionAnchorBeat = pos
                     sectionAnchorDate = Date()
                 }
-                // else: discard — keep optimistic anchor
+                // else: not there yet — keep current section active, discard update
             } else {
                 position = pos
                 sectionAnchorBeat = pos
@@ -319,6 +334,10 @@ final class BridgeService: ObservableObject {
             }
         }
 
+        // 4b. If tempo changed, reschedule auto-advance with the new rate.
+        // Position anchor was just refreshed above so the estimate will be accurate.
+        if tempo != prevTempo { scheduleAutoAdvance() }
+
         // 5. Section indices — trigger activateSection on organic change
         if pendingJumpPosition == nil {
             let prevSong = currentSongIndex
@@ -335,25 +354,46 @@ final class BridgeService: ObservableObject {
     // MARK: - Commands
 
     func jump(songIndex: Int, sectionIndex: Int) {
-        currentSongIndex = songIndex
-        currentSectionIndex = sectionIndex
-        if songs.indices.contains(songIndex),
-           songs[songIndex].sections.indices.contains(sectionIndex) {
-            let targetPosition = songs[songIndex].sections[sectionIndex].position
-            pendingJumpPosition = targetPosition
-            position = targetPosition
-            activateSection(songIndex: songIndex, sectionIndex: sectionIndex, fromBeat: targetPosition)
+        if isPlaying {
+            // Queue the jump — let Ableton's launch quantization fire on beat.
+            // Keep the current section active in the UI until Ableton confirms.
+            queuedSongIndex = songIndex
+            queuedSectionIndex = sectionIndex
+            if songs.indices.contains(songIndex),
+               songs[songIndex].sections.indices.contains(sectionIndex) {
+                pendingJumpPosition = songs[songIndex].sections[sectionIndex].position
+            }
+        } else {
+            // Stopped — snap the UI immediately, no quantization needed.
+            queuedSongIndex = -1
+            queuedSectionIndex = -1
+            currentSongIndex = songIndex
+            currentSectionIndex = sectionIndex
+            if songs.indices.contains(songIndex),
+               songs[songIndex].sections.indices.contains(sectionIndex) {
+                let targetPosition = songs[songIndex].sections[sectionIndex].position
+                pendingJumpPosition = targetPosition
+                position = targetPosition
+                activateSection(songIndex: songIndex, sectionIndex: sectionIndex, fromBeat: targetPosition)
+            }
         }
         send(["type": "jump", "song_index": songIndex, "section_index": sectionIndex])
     }
 
-    func generateCues(trackName: String = "Cues") {
-        send(["type": "generate_cues", "track_name": trackName])
+    func reorderSetlist(from source: Int, to destination: Int) {
+        guard source != destination,
+              setlistOrder.indices.contains(source),
+              (0...setlistOrder.count).contains(destination) else { return }
+        var order = setlistOrder
+        let item = order.remove(at: source)
+        let adjusted = destination > source ? destination - 1 : destination
+        order.insert(item, at: adjusted)
+        setlistOrder = order
+        UserDefaults.standard.set(order, forKey: "setlistOrder_\(order.count)")
     }
 
-    func analyzeGuide(trackName: String = "Guide") {
-        analysisState = .running
-        send(["type": "analyze_guide", "track_name": trackName, "model_size": "base"])
+    func generateCues(trackName: String = "Cues") {
+        send(["type": "generate_cues", "track_name": trackName])
     }
 
     func play() {

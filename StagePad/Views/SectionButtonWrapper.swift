@@ -14,6 +14,10 @@ struct SectionButtonWrapper: View {
         selectedSongIndex == currentSongIndex && sectionIndex == currentSectionIndex
     }
 
+    private var isQueued: Bool {
+        selectedSongIndex == bridge.queuedSongIndex && sectionIndex == bridge.queuedSectionIndex
+    }
+
     var body: some View {
         let style = SectionStyle.style(for: section.name)
         if isActive {
@@ -25,6 +29,7 @@ struct SectionButtonWrapper: View {
                     color: style.color,
                     icon: style.icon,
                     isActive: true,
+                    isQueued: false,
                     progress: computedProgress(at: tl.date),
                     danceDate: bridge.isPlaying ? tl.date : nil,
                     onTap: onTap
@@ -36,6 +41,7 @@ struct SectionButtonWrapper: View {
                 color: style.color,
                 icon: style.icon,
                 isActive: false,
+                isQueued: isQueued,
                 progress: 0,
                 danceDate: nil,
                 onTap: onTap
