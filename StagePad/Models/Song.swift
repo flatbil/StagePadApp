@@ -6,6 +6,12 @@ struct Section: Identifiable, Decodable {
     let position: Double
     let cueIndex: Int
 
+    init(name: String, position: Double, cueIndex: Int) {
+        self.name = name
+        self.position = position
+        self.cueIndex = cueIndex
+    }
+
     enum CodingKeys: String, CodingKey {
         case name, position
         case cueIndex = "cue_index"
@@ -17,6 +23,12 @@ struct Song: Identifiable, Decodable {
     let name: String
     let position: Double
     let sections: [Section]
+
+    init(name: String, position: Double, sections: [Section]) {
+        self.name = name
+        self.position = position
+        self.sections = sections
+    }
 
     enum CodingKeys: String, CodingKey {
         case name, position, sections

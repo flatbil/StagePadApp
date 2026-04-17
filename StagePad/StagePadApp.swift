@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct MDBuddyApp: App {
+struct StagePadApp: App {
     @StateObject private var bridge = BridgeService()
     @State private var showLaunch = true
 

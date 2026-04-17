@@ -1,4 +1,4 @@
-name: MDBuddy
+name: StagePad
 options:
   bundleIdPrefix: com.nuthouse
   deploymentTarget:
@@ -10,7 +10,7 @@ settings:
     TARGETED_DEVICE_FAMILY: "1,2"   # iPhone + iPad
 
 targets:
-  MDBuddy:
+  StagePad:
     type: application
     platform: iOS
     sources:

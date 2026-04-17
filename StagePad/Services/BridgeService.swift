@@ -35,7 +35,30 @@ private final class BridgeDiscovery: NSObject, @preconcurrency NetServiceBrowser
     }
 
     func netServiceDidResolveAddress(_ sender: NetService) {
-        guard let host = sender.hostName else { return }
+        // Prefer a raw IPv4 address from the resolved addresses — avoids mDNS
+        // hostname formatting issues (trailing dots, special characters) that
+        // break URL construction.
+        if let addresses = sender.addresses {
+            for data in addresses {
+                var storage = sockaddr_storage()
+                (data as NSData).getBytes(&storage, length: MemoryLayout<sockaddr_storage>.size)
+                if storage.ss_family == AF_INET {
+                    var addr = withUnsafePointer(to: &storage) {
+                        $0.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+                    }
+                    var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                    inet_ntop(AF_INET, &addr.sin_addr, &buf, socklen_t(INET_ADDRSTRLEN))
+                    let ip = String(cString: buf)
+                    if !ip.isEmpty && ip != "0.0.0.0" {
+                        onResolved?(ip, sender.port)
+                        return
+                    }
+                }
+            }
+        }
+        // Fallback to hostname if no IPv4 address found
+        guard var host = sender.hostName else { return }
+        if host.hasSuffix(".") { host = String(host.dropLast()) }
         onResolved?(host, sender.port)
     }
 
@@ -93,8 +116,12 @@ final class BridgeService: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: "bridge_host") }
     }
 
-    private func url(for resolvedHost: String) -> URL {
-        URL(string: "ws://\(resolvedHost):8766/ws")!
+    private func url(for resolvedHost: String) -> URL? {
+        // Strip trailing dot from mDNS hostnames (e.g. "host.local." → "host.local")
+        let host = resolvedHost.hasSuffix(".") ? String(resolvedHost.dropLast()) : resolvedHost
+        guard !host.isEmpty else { return nil }
+        let encoded = host.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed) ?? host
+        return URL(string: "ws://\(encoded):8766/ws")
     }
 
     // MARK: - Connection
@@ -106,6 +133,19 @@ final class BridgeService: ObservableObject {
         webSocketTask = nil
         connectionState = .connecting
 
+        #if targetEnvironment(simulator)
+        // In the Simulator, use preview data only — no live bridge connection.
+        // This gives clean, consistent screenshots without needing Ableton running.
+        songs = Song.previewSongs
+        setlistOrder = Array(songs.indices)
+        currentSongIndex = 0
+        currentSectionIndex = 2  // land on "Chorus" of first song
+        tempo = 76
+        timeSignatureNumerator = 4
+        isPlaying = true
+        connectionState = .connected
+        activateSection(songIndex: 0, sectionIndex: 2, fromBeat: 24)
+        #else
         // Try Bonjour first — resolves to USB interface when iPad is plugged in,
         // WiFi otherwise. Falls back to manual host after 3 seconds.
         discovery.stop()
@@ -126,6 +166,7 @@ final class BridgeService: ObservableObject {
                 openSocket(to: host)
             }
         }
+        #endif
     }
 
     private func openSocket(to resolvedHost: String) {
@@ -133,11 +174,17 @@ final class BridgeService: ObservableObject {
         reconnectTask?.cancel()
         reconnectTask = nil
 
+        guard let socketURL = url(for: resolvedHost) else {
+            connectionState = .disconnected
+            scheduleReconnect()
+            return
+        }
+
         activeHost = resolvedHost
         receiveGeneration += 1
         let generation = receiveGeneration
 
-        let task = session.webSocketTask(with: url(for: resolvedHost))
+        let task = session.webSocketTask(with: socketURL)
         webSocketTask = task
         task.resume()
 
