@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct StagePadApp: App {
     @StateObject private var bridge = BridgeService()
+    @StateObject private var pc = PlanningCenterService()
     @State private var showLaunch = true
 
     var body: some Scene {
@@ -10,6 +11,7 @@ struct StagePadApp: App {
             ZStack {
                 ContentView()
                     .environmentObject(bridge)
+                    .environmentObject(pc)
                     .preferredColorScheme(.dark)
 
                 if showLaunch {

@@ -2,8 +2,10 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var bridge: BridgeService
+    @EnvironmentObject var pc: PlanningCenterService
     @State private var selectedSongIndex: Int = 0
     @State private var showingSettings = false
+    @State private var showingPlan = false
 
     private var currentSongName: String {
         guard bridge.songs.indices.contains(bridge.currentSongIndex) else { return "—" }
@@ -45,7 +47,8 @@ struct ContentView: View {
                     tempo: bridge.tempo,
                     measure: currentMeasure,
                     statusColor: statusColor,
-                    onSettingsTap: { showingSettings = true }
+                    onSettingsTap: { showingSettings = true },
+                    onPlanTap: { showingPlan = true }
                 )
 
                 SongSelectorView(
@@ -68,6 +71,12 @@ struct ContentView: View {
                     emptyState
                 }
 
+                NextSectionStrip(
+                    currentSongName: currentSongName,
+                    currentSectionName: currentSectionName
+                )
+                .environmentObject(pc)
+
                 TransportBarView(
                     isPlaying: bridge.isPlaying,
                     isConnected: bridge.connectionState == .connected,
@@ -78,6 +87,11 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView().environmentObject(bridge)
+        }
+        .sheet(isPresented: $showingPlan) {
+            PlanView()
+                .environmentObject(pc)
+                .environmentObject(bridge)
         }
         .onAppear { bridge.connect() }
         .onChange(of: bridge.currentSongIndex) { _, newIndex in

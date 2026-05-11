@@ -8,6 +8,7 @@ struct InfoBarView: View {
     let measure: Int
     let statusColor: Color
     let onSettingsTap: () -> Void
+    let onPlanTap: () -> Void
 
     @State private var pingingPlaying = false
     @State private var songScale: CGFloat = 1.0
@@ -86,13 +87,18 @@ struct InfoBarView: View {
     private var controls: some View {
         HStack(spacing: 14) {
             Circle().fill(statusColor).frame(width: 8, height: 8)
+            Button(action: onPlanTap) {
+                Image(systemName: "list.bullet.rectangle")
+                    .font(.system(size: 18))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
             Button(action: onSettingsTap) {
                 Image(systemName: "gear")
                     .font(.system(size: 18))
                     .foregroundStyle(.white.opacity(0.5))
             }
         }
-        .frame(width: 70, alignment: .trailing)
+        .frame(width: 100, alignment: .trailing)
     }
 
     private func bouncingCell(label: String, value: String, scale: CGFloat, offset: CGFloat) -> some View {

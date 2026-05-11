@@ -15,4 +15,7 @@ DerivedData/
 
 # Swift Package Manager
 .build/
+
+# Planning Center credentials — never commit
+StagePad/Config/PCConfig.swift
 View duplicate invoice - Apple.pdf
