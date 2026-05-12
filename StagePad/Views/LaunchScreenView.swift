@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LaunchScreenView: View {
     let connectionState: ConnectionState
+    var onSkip: (() -> Void)? = nil
     @EnvironmentObject var bridge: BridgeService
     @State private var pulsing = false
     @State private var showingSettings = false
@@ -40,6 +41,13 @@ struct LaunchScreenView: View {
                             .animation(.easeInOut(duration: 0.4), value: connectionState)
                     }
                     .frame(width: 160)
+
+                    if connectionState != .connected {
+                        Button("Skip") { onSkip?() }
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.black.opacity(0.3))
+                            .padding(.top, 4)
+                    }
                 }
                 .padding(.bottom, 50)
             }

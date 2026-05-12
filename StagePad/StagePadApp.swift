@@ -13,10 +13,12 @@ struct StagePadApp: App {
                     .preferredColorScheme(.dark)
 
                 if showLaunch {
-                    LaunchScreenView(connectionState: bridge.connectionState)
-                        .environmentObject(bridge)
-                        .transition(.opacity)
-                        .zIndex(1)
+                    LaunchScreenView(connectionState: bridge.connectionState) {
+                        withAnimation(.easeInOut(duration: 0.5)) { showLaunch = false }
+                    }
+                    .environmentObject(bridge)
+                    .transition(.opacity)
+                    .zIndex(1)
                 }
             }
             .onChange(of: bridge.connectionState) { _, state in
@@ -26,6 +28,13 @@ struct StagePadApp: App {
                             showLaunch = false
                         }
                     }
+                }
+            }
+            .task {
+                // Always dismiss after 5 s — reviewers and users without Ableton shouldn't wait forever
+                try? await Task.sleep(for: .seconds(5))
+                if showLaunch {
+                    withAnimation(.easeInOut(duration: 0.5)) { showLaunch = false }
                 }
             }
         }
