@@ -35,28 +35,37 @@ private final class BridgeDiscovery: NSObject, @preconcurrency NetServiceBrowser
     }
 
     func netServiceDidResolveAddress(_ sender: NetService) {
-        // Prefer a raw IPv4 address from the resolved addresses — avoids mDNS
-        // hostname formatting issues (trailing dots, special characters) that
-        // break URL construction.
+        // Extract IPv4 addresses, preferring routable ones over link-local.
+        // 169.254.x.x (link-local/USB) can time out — prefer 192.168/10/172 WiFi addresses.
+        var linkLocal: String? = nil
+
         if let addresses = sender.addresses {
             for data in addresses {
                 var storage = sockaddr_storage()
                 (data as NSData).getBytes(&storage, length: MemoryLayout<sockaddr_storage>.size)
-                if storage.ss_family == AF_INET {
-                    var addr = withUnsafePointer(to: &storage) {
-                        $0.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
-                    }
-                    var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
-                    inet_ntop(AF_INET, &addr.sin_addr, &buf, socklen_t(INET_ADDRSTRLEN))
-                    let ip = String(cString: buf)
-                    if !ip.isEmpty && ip != "0.0.0.0" {
-                        onResolved?(ip, sender.port)
-                        return
-                    }
+                guard storage.ss_family == AF_INET else { continue }
+                var addr = withUnsafePointer(to: &storage) {
+                    $0.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+                }
+                var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                inet_ntop(AF_INET, &addr.sin_addr, &buf, socklen_t(INET_ADDRSTRLEN))
+                let ip = String(cString: buf)
+                guard !ip.isEmpty, ip != "0.0.0.0", ip != "127.0.0.1" else { continue }
+
+                if ip.hasPrefix("169.254.") {
+                    linkLocal = ip  // keep as fallback only
+                } else {
+                    onResolved?(ip, sender.port)  // routable address — use it
+                    return
                 }
             }
         }
-        // Fallback to hostname if no IPv4 address found
+
+        // No routable address found — try link-local, then hostname
+        if let ip = linkLocal {
+            onResolved?(ip, sender.port)
+            return
+        }
         guard var host = sender.hostName else { return }
         if host.hasSuffix(".") { host = String(host.dropLast()) }
         onResolved?(host, sender.port)
@@ -110,10 +119,65 @@ final class BridgeService: ObservableObject {
 
     // The host currently in use — set by Bonjour discovery or manual entry
     private var activeHost: String = ""
+    var activeHostPublished: String { activeHost }
 
     var host: String {
         get { UserDefaults.standard.string(forKey: "bridge_host") ?? "192.168.4.29" }
         set { UserDefaults.standard.set(newValue, forKey: "bridge_host") }
+    }
+
+    // MARK: - Saved devices
+
+    struct SavedDevice: Codable, Identifiable, Equatable {
+        var id: String { host }
+        var name: String
+        var host: String
+    }
+
+    var savedDevices: [SavedDevice] {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: "saved_devices"),
+                  let devices = try? JSONDecoder().decode([SavedDevice].self, from: data)
+            else { return [] }
+            return devices
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                UserDefaults.standard.set(data, forKey: "saved_devices")
+            }
+        }
+    }
+
+    /// Called after a successful connection — saves the host with an auto-generated name.
+    func saveCurrentDevice() {
+        guard !activeHost.isEmpty else { return }
+        var devices = savedDevices
+        // Don't duplicate
+        guard !devices.contains(where: { $0.host == activeHost }) else { return }
+        // Derive a friendly name from the hostname (strip .local suffix)
+        var name = activeHost
+        if name.hasSuffix(".local") { name = String(name.dropLast(6)) }
+        name = name.replacingOccurrences(of: "-", with: " ").capitalized
+        if name.isEmpty || name == activeHost { name = "Bridge (\(activeHost))" }
+        devices.append(SavedDevice(name: name, host: activeHost))
+        savedDevices = devices
+    }
+
+    func deleteDevice(_ device: SavedDevice) {
+        savedDevices = savedDevices.filter { $0.host != device.host }
+    }
+
+    func renameDevice(_ device: SavedDevice, to name: String) {
+        var devices = savedDevices
+        if let idx = devices.firstIndex(where: { $0.host == device.host }) {
+            devices[idx].name = name
+            savedDevices = devices
+        }
+    }
+
+    func connect(to device: SavedDevice) {
+        host = device.host
+        connect()
     }
 
     private func url(for resolvedHost: String) -> URL? {
@@ -193,6 +257,7 @@ final class BridgeService: ObservableObject {
                 guard let self, self.receiveGeneration == generation else { return }
                 if error == nil {
                     self.connectionState = .connected
+                    self.saveCurrentDevice()
                 } else {
                     self.connectionState = .disconnected
                     self.scheduleReconnect()
@@ -290,33 +355,35 @@ final class BridgeService: ObservableObject {
     }
 
     private func autoAdvanceSection(fromSong: Int, fromSection: Int) {
-        // No-op if server already moved us on (guard against double-advance)
-        guard currentSongIndex == fromSong, currentSectionIndex == fromSection else { return }
-
         if songs.indices.contains(fromSong),
            songs[fromSong].sections.indices.contains(fromSection + 1) {
             // ── Next section within the same song ─────────────────────────
-            // Ableton plays through naturally; just advance the UI.
+            // Guard here: server may have already moved us — don't go backwards.
+            guard currentSongIndex == fromSong, currentSectionIndex == fromSection else { return }
             let nextSection = fromSection + 1
             currentSongIndex = fromSong
             currentSectionIndex = nextSection
             activateSection(songIndex: fromSong, sectionIndex: nextSection, fromBeat: sectionEndBeat)
 
         } else {
-            // ── End of song — find the next song via setlist order ────────
+            // ── End of song — always apply setlist order ──────────────────
+            // Don't guard on currentSongIndex here: the server may have already
+            // updated it (Ableton plays through), but setlist-order redirect
+            // must still fire.
             guard let posInSetlist = setlistOrder.firstIndex(of: fromSong),
                   posInSetlist + 1 < setlistOrder.count else { return }
             let nextSongIdx = setlistOrder[posInSetlist + 1]
 
             if nextSongIdx == fromSong + 1 {
-                // Next setlist song is also the next song in Ableton's arrangement,
-                // so Ableton will play into it seamlessly — just update the UI.
-                currentSongIndex = nextSongIdx
-                currentSectionIndex = 0
-                activateSection(songIndex: nextSongIdx, sectionIndex: 0, fromBeat: sectionEndBeat)
+                // Setlist matches arrangement — Ableton plays through naturally.
+                // Only update UI if server hasn't already moved us past this point.
+                if currentSongIndex <= fromSong {
+                    currentSongIndex = nextSongIdx
+                    currentSectionIndex = 0
+                    activateSection(songIndex: nextSongIdx, sectionIndex: 0, fromBeat: sectionEndBeat)
+                }
             } else {
-                // Setlist order differs from arrangement order — jump Ableton
-                // to the first section of the next setlist song.
+                // Setlist order differs — jump Ableton to the correct next song.
                 jump(songIndex: nextSongIdx, sectionIndex: 0)
             }
         }

@@ -13,6 +13,7 @@ struct StagePadApp: App {
                     .environmentObject(bridge)
                     .environmentObject(pc)
                     .preferredColorScheme(.dark)
+                    .task { await pc.fetchCurrentPlan() }
 
                 if showLaunch {
                     LaunchScreenView(connectionState: bridge.connectionState)

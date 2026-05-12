@@ -33,33 +33,6 @@ enum NashvilleConverter {
         return tokens.map { convert(chord: $0, inKey: key) }.joined(separator: " ")
     }
 
-    // Same structure as parseSections but keeps raw chord text (no Nashville conversion)
-    static func parseRawSections(from chartText: String) -> [(name: String, chords: String)] {
-        var results: [(name: String, chords: String)] = []
-        var currentSection = ""
-        var currentChords: [String] = []
-
-        let lines = chartText.components(separatedBy: .newlines)
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty { continue }
-
-            if looksLikeSectionHeader(trimmed) {
-                if !currentSection.isEmpty {
-                    results.append((currentSection, currentChords.joined(separator: " | ")))
-                }
-                currentSection = extractHeaderName(stripSectionAbbreviation(trimmed))
-                currentChords = []
-            } else if looksLikeChordLine(trimmed) {
-                currentChords.append(trimmed)
-            }
-        }
-        if !currentSection.isEmpty {
-            results.append((currentSection, currentChords.joined(separator: " | ")))
-        }
-        return results
-    }
-
     // Parse sections from a Planning Center chord chart text
     // Returns [(sectionName, chords)] where chords is the Nashville-converted chord line per section
     static func parseSections(from chartText: String, key: String) -> [(name: String, nashvilleChords: String)] {
@@ -67,17 +40,17 @@ enum NashvilleConverter {
         var currentSection = ""
         var currentChords: [String] = []
 
-        // Handle both \r\n (Windows) and \n line endings
-        let lines = chartText.components(separatedBy: .newlines)
+        let lines = chartText.components(separatedBy: "\n")
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty { continue }
 
+            // Detect section headers (lines with no chords, often title-cased)
             if looksLikeSectionHeader(trimmed) {
                 if !currentSection.isEmpty {
                     results.append((currentSection, currentChords.joined(separator: " | ")))
                 }
-                currentSection = extractHeaderName(stripSectionAbbreviation(trimmed))
+                currentSection = trimmed
                 currentChords = []
             } else if looksLikeChordLine(trimmed) {
                 let converted = convertLine(trimmed, inKey: key)
@@ -90,73 +63,25 @@ enum NashvilleConverter {
         return results
     }
 
-    // Strips bracket formatting: "[Verse 1]" → "Verse 1"
-    static func extractHeaderName(_ line: String) -> String {
-        var s = line
-        if s.hasPrefix("[") { s = String(s.dropFirst()) }
-        if s.hasSuffix("]") { s = String(s.dropLast()) }
-        return s.trimmingCharacters(in: .whitespaces)
-    }
-
-    // Strips PraiseCharts-style abbreviation prefix: "V1 VERSE 1" → "VERSE 1", "C CHORUS" → "CHORUS"
-    static func stripSectionAbbreviation(_ line: String) -> String {
-        // Pattern: 1–3 uppercase letters + optional digit at start, followed by a space
-        guard let spaceIdx = line.firstIndex(of: " ") else { return line }
-        let prefix = line[line.startIndex..<spaceIdx]
-        let isAbbrev = prefix.count <= 3
-            && prefix.allSatisfy({ $0.isUppercase || $0.isNumber })
-            && prefix.contains(where: { $0.isUppercase })
-        return isAbbrev ? String(line[line.index(after: spaceIdx)...]) : line
-    }
-
     private static func looksLikeSectionHeader(_ line: String) -> Bool {
         let headers = ["intro", "verse", "chorus", "pre-chorus", "pre chorus", "bridge",
                        "tag", "outro", "ending", "vamp", "interlude", "refrain",
                        "breakdown", "turnaround", "post-chorus", "post chorus"]
-        // Try direct match (plain text or [bracketed])
-        let direct = extractHeaderName(line).lowercased()
-        if headers.contains(where: { direct.hasPrefix($0) }) { return true }
-        // Try after stripping abbreviation prefix (PraiseCharts format)
-        let stripped = extractHeaderName(stripSectionAbbreviation(line)).lowercased()
-        return headers.contains(where: { stripped.hasPrefix($0) })
-    }
-
-    static func isChordOnlyLine(_ line: String) -> Bool {
-        return looksLikeChordLine(line)
+        let lower = line.lowercased()
+        return headers.contains(where: { lower.hasPrefix($0) })
     }
 
     private static func looksLikeChordLine(_ line: String) -> Bool {
+        // A chord line has mostly chord tokens (starts with A-G optionally followed by #/b)
         let tokens = line.split(separator: " ").map(String.init)
         guard !tokens.isEmpty else { return false }
-        // PDF kerning sometimes inserts spaces inside a chord ("E m 7" → "Em7")
-        // If all tokens joined form a single valid chord, treat the line as a chord line
-        if tokens.count <= 4 && isChord(tokens.joined()) { return true }
         let chordCount = tokens.filter { isChord($0) }.count
         return Double(chordCount) / Double(tokens.count) >= 0.5
     }
 
-    // Known chord quality suffixes — rejects plain English words like "Bigger", "Acoustic"
-    private static let validQualities: Set<String> = [
-        "", "m", "M", "5", "6", "7", "9", "11", "13", "2",
-        "maj", "maj7", "maj9", "M7",
-        "m7", "m9", "m11", "m6", "m7b5", "mb5",
-        "sus", "sus2", "sus4",
-        "dim", "dim7",
-        "aug", "+",
-        "add9", "add11", "add2",
-        "7sus4", "7b9", "7b5", "7#9",
-    ]
-
     private static func isChord(_ token: String) -> Bool {
         guard let first = token.first, "ABCDEFG".contains(first) else { return false }
-        let (root, quality) = parseChord(token)
-        guard chromaticIndex(for: root) != nil else { return false }
-        // Strip slash bass note suffix: "A/C" → quality "/C" → base quality ""
-        let baseQuality = quality.hasPrefix("/") ? "" : quality
-        if let slashRange = baseQuality.range(of: "/") {
-            return validQualities.contains(String(baseQuality[..<slashRange.lowerBound]))
-        }
-        return validQualities.contains(baseQuality)
+        return chromaticIndex(for: String(parseChord(token).0)) != nil
     }
 
     private static func parseChord(_ chord: String) -> (root: String, quality: String) {

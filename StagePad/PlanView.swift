@@ -4,7 +4,6 @@ struct PlanView: View {
     @EnvironmentObject var pc: PlanningCenterService
     @EnvironmentObject var bridge: BridgeService
     @Environment(\.dismiss) private var dismiss
-    @State private var showingServicePicker = false
 
     var body: some View {
         NavigationStack {
@@ -12,7 +11,8 @@ struct PlanView: View {
                 Color.black.ignoresSafeArea()
 
                 if pc.isLoading {
-                    ProgressView().tint(.white)
+                    ProgressView()
+                        .tint(.white)
                 } else if let error = pc.error {
                     errorView(message: error)
                 } else if let plan = pc.currentPlan {
@@ -25,33 +25,21 @@ struct PlanView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") { dismiss() }.foregroundStyle(.white)
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(.white)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        Button {
-                            showingServicePicker = true
-                        } label: {
-                            Image(systemName: "calendar.badge.plus")
-                        }
-                        .foregroundStyle(.white)
-
-                        Button {
-                            Task { await pc.fetchCurrentPlan() }
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                        .foregroundStyle(.white)
+                    Button {
+                        Task { await pc.fetchCurrentPlan() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
                     }
+                    .foregroundStyle(.white)
                 }
             }
         }
         .task {
             if pc.currentPlan == nil { await pc.fetchCurrentPlan() }
-        }
-        .sheet(isPresented: $showingServicePicker) {
-            ServicePickerView()
-                .environmentObject(pc)
         }
         .preferredColorScheme(.dark)
     }
@@ -62,7 +50,12 @@ struct PlanView: View {
                 planHeader(plan: plan)
                 Divider().background(.white.opacity(0.1))
                 ForEach(plan.songs) { song in
-                    songRow(song: song)
+                    NavigationLink(destination: SongChartView(
+                        song: song,
+                        currentSectionLabel: currentSectionLabel(for: song)
+                    )) {
+                        songRow(song: song)
+                    }
                     Divider().background(.white.opacity(0.07)).padding(.leading, 20)
                 }
             }
@@ -83,22 +76,25 @@ struct PlanView: View {
     }
 
     private func songRow(song: PCSong) -> some View {
-        let isAbletonActive = bridge.songs.indices.contains(bridge.currentSongIndex) &&
-                              bridge.songs[bridge.currentSongIndex].name.lowercased()
-                                  .contains(song.title.lowercased())
-        let isDemoActive = pc.demoSong?.id == song.id
+        let isActive = bridge.songs.indices.contains(bridge.currentSongIndex) &&
+                       bridge.songs[bridge.currentSongIndex].name.lowercased()
+                           .contains(song.title.lowercased())
         let sectionLabel = currentSectionLabel(for: song)
+        let nextSection: PCSection? = {
+            guard isActive, !sectionLabel.isEmpty else { return nil }
+            return pc.nextSection(after: sectionLabel, in: song)
+        }()
 
         return HStack(spacing: 14) {
-            Image(systemName: isDemoActive ? "play.circle.fill" : "music.note")
+            Image(systemName: "music.note")
                 .font(.system(size: 16))
-                .foregroundStyle(isDemoActive ? .orange : isAbletonActive ? .green : .white.opacity(0.3))
+                .foregroundStyle(isActive ? .green : .white.opacity(0.3))
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(song.title)
-                        .font(.system(size: 16, weight: (isAbletonActive || isDemoActive) ? .bold : .medium, design: .rounded))
+                        .font(.system(size: 16, weight: isActive ? .bold : .medium, design: .rounded))
                         .foregroundStyle(.white)
                     if !song.key.isEmpty {
                         Text(song.key)
@@ -111,14 +107,17 @@ struct PlanView: View {
                     }
                 }
 
-                if isAbletonActive && !sectionLabel.isEmpty {
-                    Text("NOW: \(sectionLabel)")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.green)
-                } else if isDemoActive {
-                    Text("DEMO: \(pc.demoCurrentSection?.displayName ?? "—")")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.orange)
+                if isActive && !sectionLabel.isEmpty {
+                    HStack(spacing: 6) {
+                        Text("NOW: \(sectionLabel)")
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.green)
+                        if let next = nextSection {
+                            Text("→ \(next.displayName)")
+                                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                                .foregroundStyle(.orange)
+                        }
+                    }
                 } else {
                     Text("\(song.sections.count) sections")
                         .font(.system(size: 12, design: .monospaced))
@@ -128,47 +127,19 @@ struct PlanView: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 6) {
-                if song.bpm > 0 {
-                    Text("\(Int(song.bpm)) BPM")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.3))
-                }
-
-                // Load for Demo button
-                if !song.sections.isEmpty {
-                    Button {
-                        pc.setDemoSong(song)
-                        dismiss()
-                    } label: {
-                        Text(isDemoActive ? "IN DEMO" : "DEMO")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundStyle(isDemoActive ? .orange : .white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(isDemoActive ? Color.orange.opacity(0.2) : Color.white.opacity(0.1))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
+            if song.bpm > 0 {
+                Text("\(Int(song.bpm)) BPM")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.3))
             }
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.2))
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
-        .background(isDemoActive ? Color.orange.opacity(0.06) : isAbletonActive ? Color.green.opacity(0.06) : Color.clear)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            // Tap row → open chart view via nav
-        }
-        .overlay(alignment: .trailing) {
-            NavigationLink(destination: SongChartView(
-                song: song,
-                currentSectionLabel: currentSectionLabel(for: song)
-            )) {
-                EmptyView()
-            }
-            .opacity(0)
-        }
+        .background(isActive ? Color.green.opacity(0.06) : Color.clear)
     }
 
     private func currentSectionLabel(for song: PCSong) -> String {

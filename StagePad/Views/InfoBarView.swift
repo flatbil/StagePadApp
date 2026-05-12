@@ -9,6 +9,8 @@ struct InfoBarView: View {
     let statusColor: Color
     let onSettingsTap: () -> Void
     let onPlanTap: () -> Void
+    let onKaraokeTap: () -> Void
+    let karaokeActive: Bool
 
     @State private var pingingPlaying = false
     @State private var songScale: CGFloat = 1.0
@@ -87,6 +89,11 @@ struct InfoBarView: View {
     private var controls: some View {
         HStack(spacing: 14) {
             Circle().fill(statusColor).frame(width: 8, height: 8)
+            Button(action: onKaraokeTap) {
+                Image(systemName: "music.microphone")
+                    .font(.system(size: 18))
+                    .foregroundStyle(karaokeActive ? .orange : .white.opacity(0.5))
+            }
             Button(action: onPlanTap) {
                 Image(systemName: "list.bullet.rectangle")
                     .font(.system(size: 18))
@@ -98,7 +105,7 @@ struct InfoBarView: View {
                     .foregroundStyle(.white.opacity(0.5))
             }
         }
-        .frame(width: 100, alignment: .trailing)
+        .frame(width: 130, alignment: .trailing)
     }
 
     private func bouncingCell(label: String, value: String, scale: CGFloat, offset: CGFloat) -> some View {
