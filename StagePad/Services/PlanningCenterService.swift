@@ -144,6 +144,8 @@ class PlanningCenterService: ObservableObject {
     @Published var demoSong: PCSong?
     @Published var demoSectionIndex: Int = 0
     @Published var demoSectionStartDate: Date?
+    @Published var demoIsPlaying: Bool = false
+    private var demoAdvanceTask: Task<Void, Never>?
 
     private let applicationID: String
     private let secret: String
@@ -164,12 +166,14 @@ class PlanningCenterService: ObservableObject {
         demoSong = song
         demoSectionIndex = 0
         demoSectionStartDate = Date()
+        if demoIsPlaying { scheduleDemoAdvance() }
     }
 
     func setDemoSection(index: Int) {
         guard let song = demoSong, song.sections.indices.contains(index) else { return }
         demoSectionIndex = index
         demoSectionStartDate = Date()
+        if demoIsPlaying { scheduleDemoAdvance() }
     }
 
     func advanceDemoSection() {
@@ -181,6 +185,47 @@ class PlanningCenterService: ObservableObject {
     func retreatDemoSection() {
         let prev = demoSectionIndex - 1
         if prev >= 0 { setDemoSection(index: prev) }
+    }
+
+    // MARK: - Arrangement-sheet auto-play
+
+    /// Start walking sections on a wall-clock timer using each section's
+    /// Planning Center duration. PREV / NEXT / tapping a section still override —
+    /// each override resets the timer for the section it lands on.
+    func demoPlay() {
+        guard let song = demoSong, !song.sections.isEmpty else { return }
+        // If parked on the final section, restart from the top.
+        if demoSectionIndex >= song.sections.count - 1 { demoSectionIndex = 0 }
+        demoIsPlaying = true
+        demoSectionStartDate = Date()
+        scheduleDemoAdvance()
+    }
+
+    func demoStop() {
+        demoIsPlaying = false
+        demoAdvanceTask?.cancel()
+        demoAdvanceTask = nil
+    }
+
+    /// Advance to the next section once the current section's duration elapses,
+    /// then reschedule for the following one. Stops at the end of the song.
+    private func scheduleDemoAdvance() {
+        demoAdvanceTask?.cancel()
+        guard demoIsPlaying, let song = demoSong,
+              let duration = song.sectionDuration(at: demoSectionIndex), duration > 0
+        else { return }
+        let start = demoSectionStartDate ?? Date()
+        let remaining = max(0, duration - Date().timeIntervalSince(start))
+        demoAdvanceTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(remaining))
+            guard !Task.isCancelled, let self, self.demoIsPlaying else { return }
+            let next = self.demoSectionIndex + 1
+            if next < song.sections.count {
+                self.setDemoSection(index: next)   // moves highlight + reschedules
+            } else {
+                self.demoStop()                    // reached the end of the song
+            }
+        }
     }
 
     var demoCurrentSection: PCSection? {
@@ -211,6 +256,7 @@ class PlanningCenterService: ObservableObject {
         error = nil
         do {
             currentPlan = try await fetchUpcomingPlan()
+            if let first = currentPlan?.songs.first { setDemoSong(first) }
         } catch {
             self.error = error.localizedDescription
         }
@@ -236,6 +282,7 @@ class PlanningCenterService: ObservableObject {
             let songs = try await fetchSongs(planID: id)
             if let summary = availablePlans.first(where: { $0.id == id }) {
                 currentPlan = PCServicePlan(id: id, title: summary.title, dates: summary.dates, songs: songs)
+                if let first = songs.first { setDemoSong(first) }
             }
         } catch {
             self.error = error.localizedDescription

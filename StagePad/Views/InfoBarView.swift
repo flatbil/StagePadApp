@@ -2,6 +2,7 @@ import SwiftUI
 
 struct InfoBarView: View {
     let isPlaying: Bool
+    let isDemo: Bool
     let currentSongName: String
     let currentSectionName: String
     let tempo: Double
@@ -21,6 +22,9 @@ struct InfoBarView: View {
     var body: some View {
         HStack(spacing: 0) {
             playingIndicator
+            if isDemo {
+                demoBadge
+            }
             divider
             bouncingCell(label: "SONG", value: currentSongName, scale: songScale, offset: songOffset)
             divider
@@ -80,6 +84,23 @@ struct InfoBarView: View {
         .frame(width: 120, alignment: .leading)
         .onChange(of: isPlaying) { _, playing in pingingPlaying = playing }
         .onAppear { pingingPlaying = isPlaying }
+    }
+
+    // Shown only in Arrangement-Sheet mode: makes clear the section timing is
+    // simulated from Planning Center durations, not driven by live Ableton.
+    private var demoBadge: some View {
+        VStack(spacing: 1) {
+            Text("DEMO")
+                .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(.orange))
+            Text("no Ableton")
+                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.orange.opacity(0.8))
+        }
+        .padding(.leading, 8)
     }
 
     private var divider: some View {

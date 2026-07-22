@@ -76,7 +76,8 @@ struct ContentView: View {
                 Color.black.ignoresSafeArea()
                 VStack(spacing: 0) {
                     InfoBarView(
-                        isPlaying: bridge.isPlaying,
+                        isPlaying: isArrangementMode ? pc.demoIsPlaying : bridge.isPlaying,
+                        isDemo: isArrangementMode,
                         currentSongName: currentSongName,
                         currentSectionName: currentSectionName,
                         tempo: isArrangementMode ? (pc.demoSong?.bpm ?? 0) : bridge.tempo,
@@ -127,14 +128,18 @@ struct ContentView: View {
                     }
 
                     // Section grid — SAME component in both modes
-                    if isArrangementMode, let demoSong = pc.demoSong {
-                        SectionGridView(
-                            song: syntheticSong(from: demoSong),
-                            selectedSongIndex: 0,
-                            currentSongIndex: 0,
-                            currentSectionIndex: pc.demoSectionIndex,
-                            onTap: { pc.setDemoSection(index: $0) }
-                        )
+                    if isArrangementMode {
+                        if let demoSong = pc.demoSong {
+                            SectionGridView(
+                                song: syntheticSong(from: demoSong),
+                                selectedSongIndex: 0,
+                                currentSongIndex: 0,
+                                currentSectionIndex: pc.demoSectionIndex,
+                                onTap: { pc.setDemoSection(index: $0) }
+                            )
+                        } else {
+                            emptyState
+                        }
                     } else if bridge.songs.indices.contains(selectedSongIndex) {
                         SectionGridView(
                             song: bridge.songs[selectedSongIndex],
@@ -156,10 +161,10 @@ struct ContentView: View {
                     }
 
                     TransportBarView(
-                        isPlaying: bridge.isPlaying,
-                        isConnected: bridge.connectionState == .connected,
-                        onPlay: { bridge.play() },
-                        onStop: { bridge.stop() }
+                        isPlaying: isArrangementMode ? pc.demoIsPlaying : bridge.isPlaying,
+                        isConnected: isArrangementMode ? true : (bridge.connectionState == .connected),
+                        onPlay: { if isArrangementMode { pc.demoPlay() } else { bridge.play() } },
+                        onStop: { if isArrangementMode { pc.demoStop() } else { bridge.stop() } }
                     )
                 }
             }
