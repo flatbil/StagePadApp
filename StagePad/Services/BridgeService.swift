@@ -278,22 +278,24 @@ final class BridgeService: ObservableObject {
 
         // Launch quantization: while a jump is queued, hold (keep the current
         // section active, queued section pulsing) until the playhead reaches the
-        // launch beat, then snap to the target and resume — matching Ableton.
+        // launch beat, then snap straight to the target — in ANY song, forward or
+        // back — and emit immediately. We must return here so the setlist-order
+        // boundary logic below doesn't run this tick; otherwise a forward
+        // cross-song target (now past the old song's end) would be clobbered by
+        // the boundary redirect, leaving the jump stuck.
         if let launch = demoJumpLaunchBeat {
-            if demoPlayheadBeat >= launch {
-                if songs.indices.contains(queuedSongIndex),
-                   songs[queuedSongIndex].sections.indices.contains(queuedSectionIndex) {
-                    demoPlayheadBeat = songs[queuedSongIndex].sections[queuedSectionIndex].position
-                }
-                demoJumpLaunchBeat = nil
-            } else {
-                return   // still counting in — don't emit position yet
+            guard demoPlayheadBeat >= launch else { return }   // still counting in
+            if songs.indices.contains(queuedSongIndex),
+               songs[queuedSongIndex].sections.indices.contains(queuedSectionIndex) {
+                demoPlayheadBeat = songs[queuedSongIndex].sections[queuedSectionIndex].position
             }
+            demoJumpLaunchBeat = nil
+            emitDemoTransport()
+            return
         }
 
-        // Song boundary: advance to the next SETLIST song (not arrangement order),
-        // so reordering the setlist changes the playback order — matching the live
-        // path, where autoAdvanceSection jumps Ableton to the next setlist song.
+        // Natural advancement only: at a song boundary, continue in SETLIST order
+        // (not arrangement order), matching the live path's autoAdvanceSection.
         if songs.indices.contains(currentSongIndex) {
             let songEnd = (currentSongIndex + 1 < songs.count)
                 ? songs[currentSongIndex + 1].position
@@ -303,6 +305,10 @@ final class BridgeService: ObservableObject {
             }
         }
 
+        emitDemoTransport()
+    }
+
+    private func emitDemoTransport() {
         let (si, sc) = demoIndices(at: demoPlayheadBeat)
         applyTransport(tempo: nil, timeSigNum: nil, position: demoPlayheadBeat,
                        isPlaying: true, songIndex: si, sectionIndex: sc)
