@@ -35,6 +35,12 @@ struct StagePadApp: App {
                     withAnimation(.easeInOut(duration: 0.5)) { showLaunch = false }
                 }
             }
+            // Entering demo from anywhere (menu, search, Settings) leaves the menu.
+            .onChange(of: bridge.isDemoMode) { _, demo in
+                if demo && showLaunch {
+                    withAnimation(.easeInOut(duration: 0.5)) { showLaunch = false }
+                }
+            }
         }
     }
 }

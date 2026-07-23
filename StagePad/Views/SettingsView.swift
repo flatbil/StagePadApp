@@ -147,6 +147,24 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal)
 
+                // Demo mode — explore with sample songs without a bridge.
+                Button(action: {
+                    bridge.enterDemoMode()
+                    dismiss()
+                }) {
+                    HStack {
+                        Image(systemName: "play.rectangle.fill")
+                        Text("Enter Demo Mode")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.orange.opacity(0.15))
+                    .foregroundStyle(.orange)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .padding(.horizontal)
+
                 Spacer()
             }
             .padding(.top)

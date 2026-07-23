@@ -135,19 +135,6 @@ final class BridgeService: ObservableObject {
         webSocketTask = nil
         connectionState = .connecting
 
-        #if targetEnvironment(simulator)
-        // In the Simulator, use preview data only — no live bridge connection.
-        // This gives clean, consistent screenshots without needing Ableton running.
-        songs = Song.previewSongs
-        setlistOrder = Array(songs.indices)
-        currentSongIndex = 0
-        currentSectionIndex = 2  // land on "Chorus" of first song
-        tempo = 76
-        timeSignatureNumerator = 4
-        isPlaying = true
-        connectionState = .connected
-        activateSection(songIndex: 0, sectionIndex: 2, fromBeat: 24)
-        #else
         // Try Bonjour first — resolves to USB interface when iPad is plugged in,
         // WiFi otherwise. Falls back to manual host after 3 seconds.
         discovery.stop()
@@ -168,7 +155,6 @@ final class BridgeService: ObservableObject {
                 openSocket(to: host)
             }
         }
-        #endif
     }
 
     private func openSocket(to resolvedHost: String) {
