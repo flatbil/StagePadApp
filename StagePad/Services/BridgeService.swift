@@ -97,6 +97,7 @@ final class BridgeService: ObservableObject {
     private var webSocketTask: URLSessionWebSocketTask?
     private var reconnectTask: Task<Void, Never>?
     private var autoAdvanceTask: Task<Void, Never>?
+    private var demoJumpTask: Task<Void, Never>?
     private var receiveGeneration = 0
     private let session = URLSession(configuration: .default)
     private let discovery = BridgeDiscovery()
@@ -209,6 +210,8 @@ final class BridgeService: ObservableObject {
         reconnectTask = nil
         autoAdvanceTask?.cancel()
         autoAdvanceTask = nil
+        demoJumpTask?.cancel()
+        demoJumpTask = nil
         discovery.stop()
         receiveGeneration += 1
         webSocketTask?.cancel(with: .goingAway, reason: nil)
@@ -447,6 +450,12 @@ final class BridgeService: ObservableObject {
                songs[songIndex].sections.indices.contains(sectionIndex) {
                 pendingJumpPosition = songs[songIndex].sections[sectionIndex].position
             }
+            if webSocketTask == nil {
+                // No live bridge to confirm the launch (Simulator preview or
+                // on-device demo mode) — simulate Ableton's quantization so the
+                // queued section pulses, then jumps on the next bar boundary.
+                scheduleDemoJumpConfirm(songIndex: songIndex, sectionIndex: sectionIndex)
+            }
         } else {
             // Stopped — snap the UI immediately, no quantization needed.
             queuedSongIndex = -1
@@ -462,6 +471,39 @@ final class BridgeService: ObservableObject {
             }
         }
         send(["type": "jump", "song_index": songIndex, "section_index": sectionIndex])
+    }
+
+    /// Offline stand-in for Ableton's launch-quantized jump confirmation, used
+    /// when no bridge is connected (Simulator preview or on-device demo mode).
+    /// A queued section stays pulsing until the next bar boundary, then the jump
+    /// is applied and playback continues from there — mirroring live behavior.
+    private func scheduleDemoJumpConfirm(songIndex: Int, sectionIndex: Int) {
+        demoJumpTask?.cancel()
+        autoAdvanceTask?.cancel()   // don't let the current section auto-advance while a jump is pending
+        guard tempo > 0 else { return }
+
+        let beatsPerBar = Double(timeSignatureNumerator)
+        let elapsed = Date().timeIntervalSince(sectionAnchorDate)
+        let currentBeat = sectionAnchorBeat + elapsed * tempo / 60.0
+        let nextBar = (floor(currentBeat / beatsPerBar) + 1) * beatsPerBar
+        let seconds = max(0.25, (nextBar - currentBeat) * 60.0 / tempo)
+
+        demoJumpTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard let self, !Task.isCancelled, self.webSocketTask == nil,
+                  self.queuedSongIndex == songIndex, self.queuedSectionIndex == sectionIndex,
+                  self.songs.indices.contains(songIndex),
+                  self.songs[songIndex].sections.indices.contains(sectionIndex) else { return }
+
+            self.queuedSongIndex = -1
+            self.queuedSectionIndex = -1
+            self.pendingJumpPosition = nil
+            self.currentSongIndex = songIndex
+            self.currentSectionIndex = sectionIndex
+            let target = self.songs[songIndex].sections[sectionIndex].position
+            self.position = target
+            self.activateSection(songIndex: songIndex, sectionIndex: sectionIndex, fromBeat: target)
+        }
     }
 
     func reorderSetlist(from source: Int, to destination: Int) {
@@ -491,6 +533,13 @@ final class BridgeService: ObservableObject {
         isPlaying = false
         sectionAnchorBeat = position // freeze progress at current position
         autoAdvanceTask?.cancel()
+        demoJumpTask?.cancel()
+        if webSocketTask == nil {
+            // Clear any pending offline jump so it doesn't keep pulsing while stopped.
+            queuedSongIndex = -1
+            queuedSectionIndex = -1
+            pendingJumpPosition = nil
+        }
         send(["type": "transport", "action": "stop"])
     }
 
