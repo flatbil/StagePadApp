@@ -4,6 +4,7 @@ import SwiftUI
 struct StagePadApp: App {
     @StateObject private var bridge = BridgeService()
     @State private var showLaunch = true
+    @State private var showDemoWelcome = false
 
     var body: some Scene {
         WindowGroup {
@@ -15,6 +16,12 @@ struct StagePadApp: App {
                 if showLaunch {
                     LaunchScreenView(connectionState: bridge.connectionState) {
                         withAnimation(.easeInOut(duration: 0.5)) { showLaunch = false }
+                        if bridge.connectionState != .connected {
+                            bridge.enterDemoMode()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                showDemoWelcome = true
+                            }
+                        }
                     }
                     .environmentObject(bridge)
                     .transition(.opacity)
@@ -30,12 +37,23 @@ struct StagePadApp: App {
                     }
                 }
             }
+            // Safety net so the launch screen can never hang (App Store 2.1(a)).
+            // The launch screen surfaces an explicit "Explore Demo" button at ~3s;
+            // this fires a few seconds later for reviewers who don't tap it.
             .task {
-                // Always dismiss after 5 s — reviewers and users without Ableton shouldn't wait forever
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(for: .seconds(6))
                 if showLaunch {
                     withAnimation(.easeInOut(duration: 0.5)) { showLaunch = false }
+                    if bridge.connectionState != .connected {
+                        bridge.enterDemoMode()
+                        try? await Task.sleep(for: .seconds(0.6))
+                        showDemoWelcome = true
+                    }
                 }
+            }
+            .sheet(isPresented: $showDemoWelcome) {
+                DemoWelcomeView(isPresented: $showDemoWelcome)
+                    .preferredColorScheme(.dark)
             }
         }
     }

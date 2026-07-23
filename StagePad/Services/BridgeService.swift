@@ -1,7 +1,7 @@
 import Foundation
 
 enum ConnectionState: Equatable {
-    case disconnected, connecting, connected
+    case disconnected, connecting, connected, rejected
 }
 
 // Bonjour discovery — finds the bridge on whatever interface is fastest
@@ -85,6 +85,7 @@ final class BridgeService: ObservableObject {
     /// -1 means no jump pending.
     @Published var queuedSongIndex: Int = -1
     @Published var queuedSectionIndex: Int = -1
+    @Published var isDemoMode: Bool = false
 
     // Section timing — read by TimelineView in SectionButtonWrapper at render time.
     // Not @Published: changing these must not trigger re-renders; TimelineView polls them.
@@ -215,6 +216,20 @@ final class BridgeService: ObservableObject {
         connectionState = .disconnected
     }
 
+    /// Load preview data so the UI is explorable without a bridge connection.
+    /// Does not interrupt the reconnect loop — the app will connect automatically
+    /// when the bridge comes online and real data will replace demo data.
+    func enterDemoMode() {
+        isDemoMode = true
+        songs = Song.previewSongs
+        setlistOrder = Array(songs.indices)
+        currentSongIndex = 0
+        currentSectionIndex = 0
+        tempo = 120
+        timeSignatureNumerator = 4
+        position = 0
+    }
+
     private func receive(generation: Int) {
         webSocketTask?.receive { [weak self] result in
             Task { @MainActor [weak self] in
@@ -233,7 +248,7 @@ final class BridgeService: ObservableObject {
     }
 
     private func scheduleReconnect() {
-        guard reconnectTask == nil else { return }
+        guard reconnectTask == nil, connectionState != .rejected else { return }
         reconnectTask = Task {
             try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled else { return }
@@ -325,9 +340,31 @@ final class BridgeService: ObservableObject {
     // MARK: - Message handling
 
     private func handle(_ text: String) {
+        if isDemoMode { isDemoMode = false }
         guard let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = json["type"] as? String else { return }
+
+        if type == "connection_rejected" {
+            // Another device holds primary control — stop all reconnect attempts
+            receiveGeneration += 1
+            webSocketTask?.cancel(with: .normalClosure, reason: nil)
+            webSocketTask = nil
+            reconnectTask?.cancel()
+            reconnectTask = nil
+            connectionState = .rejected
+            return
+        }
+
+        if type == "control_released" {
+            // Primary gave up control — reconnect immediately to take over
+            receiveGeneration += 1
+            webSocketTask?.cancel(with: .normalClosure, reason: nil)
+            webSocketTask = nil
+            connectionState = .disconnected
+            connect()
+            return
+        }
 
         // 1. Song list (state message only)
         if type == "state", let songsData = try? JSONSerialization.data(withJSONObject: json["songs"] ?? []) {
@@ -458,6 +495,10 @@ final class BridgeService: ObservableObject {
     }
 
     func refresh() { send(["type": "refresh"]) }
+
+    func releaseControl() {
+        send(["type": "release_control"])
+    }
 
     private func send(_ dict: [String: Any]) {
         guard let data = try? JSONSerialization.data(withJSONObject: dict),

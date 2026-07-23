@@ -31,6 +31,7 @@ struct ContentView: View {
         case .connected:    return .green
         case .connecting:   return .orange
         case .disconnected: return .red
+        case .rejected:     return .red
         }
     }
 
