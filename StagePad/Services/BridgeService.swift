@@ -276,19 +276,45 @@ final class BridgeService: ObservableObject {
         guard isPlaying, tempo > 0 else { return }
         demoPlayheadBeat += dt * tempo / 60.0
 
-        // Launch quantization: snap to the queued target once the launch beat passes.
-        if let launch = demoJumpLaunchBeat, demoPlayheadBeat >= launch,
-           songs.indices.contains(queuedSongIndex),
-           songs[queuedSongIndex].sections.indices.contains(queuedSectionIndex) {
-            demoPlayheadBeat = songs[queuedSongIndex].sections[queuedSectionIndex].position
-            demoJumpLaunchBeat = nil
+        // Launch quantization: while a jump is queued, hold (keep the current
+        // section active, queued section pulsing) until the playhead reaches the
+        // launch beat, then snap to the target and resume — matching Ableton.
+        if let launch = demoJumpLaunchBeat {
+            if demoPlayheadBeat >= launch {
+                if songs.indices.contains(queuedSongIndex),
+                   songs[queuedSongIndex].sections.indices.contains(queuedSectionIndex) {
+                    demoPlayheadBeat = songs[queuedSongIndex].sections[queuedSectionIndex].position
+                }
+                demoJumpLaunchBeat = nil
+            } else {
+                return   // still counting in — don't emit position yet
+            }
         }
 
-        if demoPlayheadBeat >= demoSetEndBeat() { demoPlayheadBeat = 0 }   // loop the demo set
+        // Song boundary: advance to the next SETLIST song (not arrangement order),
+        // so reordering the setlist changes the playback order — matching the live
+        // path, where autoAdvanceSection jumps Ableton to the next setlist song.
+        if songs.indices.contains(currentSongIndex) {
+            let songEnd = (currentSongIndex + 1 < songs.count)
+                ? songs[currentSongIndex + 1].position
+                : demoSetEndBeat()
+            if demoPlayheadBeat >= songEnd {
+                demoPlayheadBeat = songs[nextSetlistSong(after: currentSongIndex)].position
+            }
+        }
 
         let (si, sc) = demoIndices(at: demoPlayheadBeat)
         applyTransport(tempo: nil, timeSigNum: nil, position: demoPlayheadBeat,
                        isPlaying: true, songIndex: si, sectionIndex: sc)
+    }
+
+    /// The arrangement index of the song that follows `arrangementIndex` in the
+    /// current setlist order, wrapping to the first setlist song at the end.
+    private func nextSetlistSong(after arrangementIndex: Int) -> Int {
+        guard !setlistOrder.isEmpty,
+              let pos = setlistOrder.firstIndex(of: arrangementIndex) else { return 0 }
+        let next = pos + 1 < setlistOrder.count ? setlistOrder[pos + 1] : setlistOrder[0]
+        return songs.indices.contains(next) ? next : 0
     }
 
     /// Current (song, section) for an absolute beat — mirrors the bridge's
@@ -490,7 +516,10 @@ final class BridgeService: ObservableObject {
         // Position — with beat-quantized jump suppression.
         if let pos {
             if let target = pendingJumpPosition {
-                if pos >= target - 1.0 {
+                // The launch has fired only once the playhead lands near the target.
+                // Use distance (not pos >= target - 1) so backward jumps aren't
+                // falsely confirmed while the transport is still ahead of the target.
+                if abs(pos - target) < 1.0 {
                     pendingJumpPosition = nil
                     queuedSongIndex = -1
                     queuedSectionIndex = -1
