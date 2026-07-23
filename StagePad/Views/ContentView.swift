@@ -75,7 +75,9 @@ struct ContentView: View {
 
                 TransportBarView(
                     isPlaying: bridge.isPlaying,
-                    isConnected: bridge.connectionState == .connected,
+                    // Demo mode drives its own local playback, so enable transport
+                    // there too (not just on a live bridge connection).
+                    isConnected: bridge.connectionState == .connected || bridge.isDemoMode,
                     onPlay: { bridge.play() },
                     onStop: { bridge.stop() }
                 )
