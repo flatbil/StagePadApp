@@ -1,22 +1,17 @@
 import SwiftUI
 
+/// Launch menu: asks whether to search for the Ableton Bridge or enter demo
+/// mode. Nothing happens automatically — the user chooses. Once "Search" is
+/// tapped the view shows connection progress; the parent dismisses on connect.
 struct LaunchScreenView: View {
     let connectionState: ConnectionState
-    var onSkip: (() -> Void)? = nil
+    var onSearch: () -> Void
+    var onDemo: () -> Void
     @EnvironmentObject var bridge: BridgeService
     @State private var pulsing = false
     @State private var showingSettings = false
-    /// Flips true after a short search window so we can move from a neutral
-    /// "Searching…" state to an explicit "not found — explore a demo" prompt.
+    @State private var searching = false
     @State private var searchTimedOut = false
-
-    // How long to look for the bridge before offering the demo explicitly.
-    private let searchWindow: Double = 3.0
-
-    // True once we've searched and still have no live bridge connection.
-    private var bridgeNotFound: Bool {
-        searchTimedOut && connectionState != .connected && connectionState != .rejected
-    }
 
     var body: some View {
         ZStack {
@@ -24,7 +19,6 @@ struct LaunchScreenView: View {
 
             VStack(spacing: 0) {
                 Spacer()
-
                 Image("GatewayIcon")
                     .resizable()
                     .scaledToFit()
@@ -32,15 +26,13 @@ struct LaunchScreenView: View {
                     .scaleEffect(pulsing ? 1.08 : 0.95)
                     .opacity(pulsing ? 1.0 : 0.65)
                     .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulsing)
-
                 Spacer()
 
-                statusArea
-                    .padding(.bottom, 50)
+                if searching { searchingArea } else { menuArea }
             }
+            .padding(.bottom, 50)
 
-            // Settings button — always accessible so an IP can be set manually
-            // (e.g. if Bonjour discovery is blocked on the venue network).
+            // Settings — always available so a manual IP can be entered.
             VStack {
                 HStack {
                     Spacer()
@@ -55,74 +47,107 @@ struct LaunchScreenView: View {
             }
         }
         .onAppear { pulsing = true }
-        .task {
-            try? await Task.sleep(for: .seconds(searchWindow))
-            withAnimation(.easeInOut(duration: 0.35)) { searchTimedOut = true }
-        }
         .sheet(isPresented: $showingSettings) {
             SettingsView().environmentObject(bridge)
         }
     }
 
-    @ViewBuilder
-    private var statusArea: some View {
-        if connectionState == .rejected {
-            // Another iPad already holds the live connection.
-            VStack(spacing: 12) {
-                Text("Another device is connected")
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.black.opacity(0.45))
-                demoButton(title: "Explore Demo Instead")
-            }
-        } else if bridgeNotFound {
-            // Searched, no Mac bridge found — present the demo as a clear,
-            // intentional choice rather than a silent timeout.
-            VStack(spacing: 14) {
-                VStack(spacing: 6) {
-                    Text("Ableton Bridge not found")
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.black.opacity(0.7))
-                    Text("MD Buddy connects to Ableton Live through the Bridge app on your Mac. Make sure the Bridge is running, an Ableton session is open, and both devices are on the same Wi-Fi network.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.black.opacity(0.45))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(2)
-                        .frame(maxWidth: 380)
-                }
-                demoButton(title: "Explore Demo")
-            }
-            .transition(.opacity)
-        } else {
-            // Actively searching (or just connected — parent dismisses shortly).
-            VStack(spacing: 10) {
-                Text(connectionState == .connected ? "Connected" : "Searching for Ableton Bridge…")
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.black.opacity(0.4))
+    // MARK: - Menu (initial choice)
 
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(.black.opacity(0.1))
-                        .frame(height: 3)
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(.black.opacity(0.4))
-                        .frame(width: progressWidth, height: 3)
-                        .animation(.easeInOut(duration: 0.4), value: connectionState)
-                }
-                .frame(width: 160)
+    private var menuArea: some View {
+        VStack(spacing: 16) {
+            Text("Connect to your Ableton set, or explore a demo.")
+                .font(.system(size: 14))
+                .foregroundStyle(.black.opacity(0.45))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 360)
+                .padding(.bottom, 4)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) { searching = true }
+                startSearchTimer()
+                onSearch()
+            } label: {
+                menuLabel("Search for Ableton Bridge", icon: "dot.radiowaves.left.and.right", filled: true)
             }
+            .buttonStyle(.plain)
+
+            Button { onDemo() } label: {
+                menuLabel("Enter Demo Mode", icon: "play.rectangle", filled: false)
+            }
+            .buttonStyle(.plain)
         }
     }
 
-    private func demoButton(title: String) -> some View {
-        Button { onSkip?() } label: {
-            Text(title)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 28)
-                .padding(.vertical, 12)
-                .background(Capsule().fill(.black.opacity(0.85)))
+    // MARK: - Searching (after choosing to connect)
+
+    private var searchingArea: some View {
+        VStack(spacing: 14) {
+            Text(searchStatus)
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .foregroundStyle(.black.opacity(0.5))
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 2).fill(.black.opacity(0.1)).frame(height: 3)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(.black.opacity(0.4))
+                    .frame(width: progressWidth, height: 3)
+                    .animation(.easeInOut(duration: 0.4), value: connectionState)
+            }
+            .frame(width: 160)
+
+            Button { onDemo() } label: {
+                menuLabel("Enter Demo Mode", icon: "play.rectangle", filled: false)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+
+            Button("Back") {
+                bridge.disconnect()
+                withAnimation(.easeInOut(duration: 0.25)) { searching = false }
+                searchTimedOut = false
+            }
+            .font(.system(size: 13, weight: .medium, design: .monospaced))
+            .foregroundStyle(.black.opacity(0.35))
         }
-        .padding(.top, 2)
+    }
+
+    private var searchStatus: String {
+        switch connectionState {
+        case .rejected:  return "Another device is connected"
+        case .connected: return "Connected"
+        default:
+            return searchTimedOut
+                ? "Bridge not found — still searching…\nMake sure the Bridge and Ableton are running\non the same Wi-Fi network."
+                : "Searching for Ableton Bridge…"
+        }
+    }
+
+    private func startSearchTimer() {
+        searchTimedOut = false
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            if searching { withAnimation { searchTimedOut = true } }
+        }
+    }
+
+    // MARK: - Shared
+
+    private func menuLabel(_ title: String, icon: String, filled: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon).font(.system(size: 15, weight: .semibold))
+            Text(title).font(.system(size: 16, weight: .semibold, design: .rounded))
+        }
+        .foregroundStyle(filled ? .white : .black.opacity(0.75))
+        .padding(.horizontal, 26)
+        .padding(.vertical, 13)
+        .frame(minWidth: 280)
+        .background(
+            Capsule().fill(filled ? Color.black.opacity(0.85) : Color.clear)
+                .overlay(Capsule().stroke(.black.opacity(filled ? 0 : 0.25), lineWidth: 1.5))
+        )
     }
 
     private var progressWidth: CGFloat {

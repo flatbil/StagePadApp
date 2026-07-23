@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    let onExitToMenu: () -> Void
     @EnvironmentObject var bridge: BridgeService
     @State private var selectedSongIndex: Int = 0
     @State private var showingSettings = false
@@ -27,6 +28,7 @@ struct ContentView: View {
     }
 
     private var statusColor: Color {
+        if bridge.isDemoMode { return .orange }
         switch bridge.connectionState {
         case .connected:    return .green
         case .connecting:   return .orange
@@ -46,7 +48,9 @@ struct ContentView: View {
                     tempo: bridge.tempo,
                     measure: currentMeasure,
                     statusColor: statusColor,
-                    onSettingsTap: { showingSettings = true }
+                    isDemo: bridge.isDemoMode,
+                    onSettingsTap: { showingSettings = true },
+                    onDemoTap: onExitToMenu
                 )
 
                 SongSelectorView(
@@ -80,7 +84,6 @@ struct ContentView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView().environmentObject(bridge)
         }
-        .onAppear { bridge.connect() }
         .onChange(of: bridge.currentSongIndex) { _, newIndex in
             if newIndex >= 0 { selectedSongIndex = newIndex }
         }

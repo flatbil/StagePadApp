@@ -7,7 +7,9 @@ struct InfoBarView: View {
     let tempo: Double
     let measure: Int
     let statusColor: Color
+    var isDemo: Bool = false
     let onSettingsTap: () -> Void
+    var onDemoTap: (() -> Void)? = nil
 
     @State private var pingingPlaying = false
     @State private var songScale: CGFloat = 1.0
@@ -18,6 +20,9 @@ struct InfoBarView: View {
     var body: some View {
         HStack(spacing: 0) {
             playingIndicator
+            if isDemo {
+                demoBadge
+            }
             divider
             bouncingCell(label: "SONG", value: currentSongName, scale: songScale, offset: songOffset)
             divider
@@ -36,6 +41,26 @@ struct InfoBarView: View {
         .background(Color.white.opacity(0.05))
         .onChange(of: currentSongName) { _, _ in bounce(scale: $songScale, offset: $songOffset) }
         .onChange(of: currentSectionName) { _, _ in bounce(scale: $sectionScale, offset: $sectionOffset) }
+    }
+
+    // Demo-mode indicator. Tapping it leaves demo mode and returns to the
+    // launch menu, where the user can choose to search for the bridge again.
+    private var demoBadge: some View {
+        Button { onDemoTap?() } label: {
+            VStack(spacing: 1) {
+                Text("DEMO")
+                    .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(.orange))
+                Text("tap to exit")
+                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.orange.opacity(0.85))
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, 10)
     }
 
     private func bounce(scale: Binding<CGFloat>, offset: Binding<CGFloat>) {

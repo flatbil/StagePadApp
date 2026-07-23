@@ -233,6 +233,22 @@ final class BridgeService: ObservableObject {
         position = 0
     }
 
+    /// Leave demo mode and tear down its state so the launch menu can offer a
+    /// fresh choice (search for the bridge, or re-enter demo).
+    func exitDemoMode() {
+        isDemoMode = false
+        disconnect()               // cancels tasks/socket, sets .disconnected
+        isPlaying = false
+        songs = []
+        setlistOrder = []
+        currentSongIndex = -1
+        currentSectionIndex = -1
+        queuedSongIndex = -1
+        queuedSectionIndex = -1
+        position = 0
+        tempo = 0
+    }
+
     private func receive(generation: Int) {
         webSocketTask?.receive { [weak self] result in
             Task { @MainActor [weak self] in
