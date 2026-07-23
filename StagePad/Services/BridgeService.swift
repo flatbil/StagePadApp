@@ -97,7 +97,10 @@ final class BridgeService: ObservableObject {
     private var webSocketTask: URLSessionWebSocketTask?
     private var reconnectTask: Task<Void, Never>?
     private var autoAdvanceTask: Task<Void, Never>?
-    private var demoJumpTask: Task<Void, Never>?
+    // Demo simulator ("fake bridge") state.
+    private var demoTickerTask: Task<Void, Never>?
+    private var demoPlayheadBeat: Double = 0
+    private var demoJumpLaunchBeat: Double? = nil
     private var receiveGeneration = 0
     private let session = URLSession(configuration: .default)
     private let discovery = BridgeDiscovery()
@@ -196,8 +199,8 @@ final class BridgeService: ObservableObject {
         reconnectTask = nil
         autoAdvanceTask?.cancel()
         autoAdvanceTask = nil
-        demoJumpTask?.cancel()
-        demoJumpTask = nil
+        demoTickerTask?.cancel()
+        demoTickerTask = nil
         discovery.stop()
         receiveGeneration += 1
         webSocketTask?.cancel(with: .goingAway, reason: nil)
@@ -212,16 +215,25 @@ final class BridgeService: ObservableObject {
         isDemoMode = true
         songs = Song.previewSongs
         setlistOrder = Array(songs.indices)
-        currentSongIndex = 0
-        currentSectionIndex = 0
         tempo = 120
         timeSignatureNumerator = 4
-        position = 0
+        isPlaying = false
+        pendingJumpPosition = nil
+        queuedSongIndex = -1
+        queuedSectionIndex = -1
+        demoPlayheadBeat = 0
+        demoJumpLaunchBeat = nil
+        // Seed the starting section through the shared transport path, then run
+        // the fake bridge that streams position updates through the same path.
+        let (si, sc) = demoIndices(at: demoPlayheadBeat)
+        applyTransport(tempo: 120, timeSigNum: 4, position: 0, isPlaying: false, songIndex: si, sectionIndex: sc)
+        startDemoTicker()
     }
 
     /// Leave demo mode and tear down its state so the launch menu can offer a
     /// fresh choice (search for the bridge, or re-enter demo).
     func exitDemoMode() {
+        stopDemoTicker()
         isDemoMode = false
         disconnect()               // cancels tasks/socket, sets .disconnected
         isPlaying = false
@@ -233,6 +245,70 @@ final class BridgeService: ObservableObject {
         queuedSectionIndex = -1
         position = 0
         tempo = 0
+    }
+
+    // MARK: - Demo simulator (a fake bridge feeding applyTransport)
+
+    private func startDemoTicker() {
+        demoTickerTask?.cancel()
+        demoTickerTask = Task { [weak self] in
+            var last = Date()
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(33))   // ~30 Hz, like the bridge's position stream
+                guard let self, self.isDemoMode else { return }
+                let now = Date()
+                let dt = now.timeIntervalSince(last)
+                last = now
+                self.demoTick(dt: dt)
+            }
+        }
+    }
+
+    private func stopDemoTicker() {
+        demoTickerTask?.cancel()
+        demoTickerTask = nil
+    }
+
+    /// One frame of the fake bridge: advance the playhead, apply a launch-quantized
+    /// jump if one is due, then emit the transport snapshot a real "position"
+    /// message would carry — so the UI runs identical code in demo and live modes.
+    private func demoTick(dt: Double) {
+        guard isPlaying, tempo > 0 else { return }
+        demoPlayheadBeat += dt * tempo / 60.0
+
+        // Launch quantization: snap to the queued target once the launch beat passes.
+        if let launch = demoJumpLaunchBeat, demoPlayheadBeat >= launch,
+           songs.indices.contains(queuedSongIndex),
+           songs[queuedSongIndex].sections.indices.contains(queuedSectionIndex) {
+            demoPlayheadBeat = songs[queuedSongIndex].sections[queuedSectionIndex].position
+            demoJumpLaunchBeat = nil
+        }
+
+        if demoPlayheadBeat >= demoSetEndBeat() { demoPlayheadBeat = 0 }   // loop the demo set
+
+        let (si, sc) = demoIndices(at: demoPlayheadBeat)
+        applyTransport(tempo: nil, timeSigNum: nil, position: demoPlayheadBeat,
+                       isPlaying: true, songIndex: si, sectionIndex: sc)
+    }
+
+    /// Current (song, section) for an absolute beat — mirrors the bridge's
+    /// parser.find_current_indices so demo advancement matches live behavior.
+    private func demoIndices(at beat: Double) -> (Int, Int) {
+        var songIdx = -1
+        var sectionIdx = -1
+        for (si, song) in songs.enumerated() where beat >= song.position {
+            songIdx = si
+            sectionIdx = -1
+            for (sci, section) in song.sections.enumerated() {
+                if beat >= section.position { sectionIdx = sci } else { break }
+            }
+        }
+        return (songIdx, sectionIdx)
+    }
+
+    private func demoSetEndBeat() -> Double {
+        guard let lastSong = songs.last, let lastSection = lastSong.sections.last else { return 0 }
+        return lastSection.position + Double(timeSignatureNumerator) * 4   // + 4 bars of tail
     }
 
     private func receive(generation: Int) {
@@ -290,7 +366,9 @@ final class BridgeService: ObservableObject {
 
     private func scheduleAutoAdvance() {
         autoAdvanceTask?.cancel()
-        guard isPlaying, tempo > 0 else { return }
+        // In demo mode the fake-bridge ticker drives section changes directly, so
+        // the client-side prediction is unnecessary and would double-advance.
+        guard !isDemoMode, isPlaying, tempo > 0 else { return }
 
         // Estimate where we are right now using elapsed wall-clock time since
         // the last server-confirmed anchor. This keeps the timer accurate after
@@ -387,15 +465,31 @@ final class BridgeService: ObservableObject {
             }
         }
 
-        // 2. Metadata first (tempo needed before activateSection)
-        let prevTempo = tempo
-        if let t = json["tempo"] as? Double                  { tempo = t }
-        if let n = json["time_signature_numerator"] as? Int  { timeSignatureNumerator = n }
+        // Metadata, position, playing state, and section indices are applied
+        // through applyTransport — the single path shared with the demo simulator.
+        applyTransport(
+            tempo: json["tempo"] as? Double,
+            timeSigNum: json["time_signature_numerator"] as? Int,
+            position: json["position"] as? Double,
+            isPlaying: json["is_playing"] as? Bool,
+            songIndex: json["current_song_index"] as? Int,
+            sectionIndex: json["current_section_index"] as? Int
+        )
+    }
 
-        // 3. Position — update anchor for TimelineView interpolation
-        if let pos = json["position"] as? Double {
+    /// Apply a transport snapshot to published state. Both the live bridge message
+    /// handler and the demo simulator feed this one path, so jump-quantization
+    /// suppression, section activation, and progress behave identically in both.
+    private func applyTransport(tempo t: Double?, timeSigNum: Int?, position pos: Double?,
+                                isPlaying playing: Bool?, songIndex: Int?, sectionIndex: Int?) {
+        // Tempo / time signature (needed before activateSection).
+        let prevTempo = tempo
+        if let t { tempo = t }
+        if let timeSigNum { timeSignatureNumerator = timeSigNum }
+
+        // Position — with beat-quantized jump suppression.
+        if let pos {
             if let target = pendingJumpPosition {
-                // Still waiting for Ableton's beat-quantized jump to fire
                 if pos >= target - 1.0 {
                     pendingJumpPosition = nil
                     queuedSongIndex = -1
@@ -404,7 +498,7 @@ final class BridgeService: ObservableObject {
                     sectionAnchorBeat = pos
                     sectionAnchorDate = Date()
                 }
-                // else: not there yet — keep current section active, discard update
+                // else: not there yet — hold the current section, discard update
             } else {
                 position = pos
                 sectionAnchorBeat = pos
@@ -412,27 +506,24 @@ final class BridgeService: ObservableObject {
             }
         }
 
-        // 4. Playing state
-        if let playing = json["is_playing"] as? Bool {
+        // Playing state.
+        if let playing {
             let wasPlaying = isPlaying
             isPlaying = playing
             if !playing && wasPlaying {
-                // Stopped: freeze anchor at current server position
                 sectionAnchorBeat = position
                 sectionAnchorDate = Date()
             }
         }
 
-        // 4b. If tempo changed, reschedule auto-advance with the new rate.
-        // Position anchor was just refreshed above so the estimate will be accurate.
         if tempo != prevTempo { scheduleAutoAdvance() }
 
-        // 5. Section indices — trigger activateSection on organic change
+        // Section indices — activate on organic change (only when no jump pending).
         if pendingJumpPosition == nil {
             let prevSong = currentSongIndex
             let prevSection = currentSectionIndex
-            if let si = json["current_song_index"] as? Int    { currentSongIndex = si }
-            if let sc = json["current_section_index"] as? Int { currentSectionIndex = sc }
+            if let songIndex { currentSongIndex = songIndex }
+            if let sectionIndex { currentSectionIndex = sectionIndex }
             if (currentSongIndex != prevSong || currentSectionIndex != prevSection),
                currentSongIndex >= 0, currentSectionIndex >= 0 {
                 activateSection(songIndex: currentSongIndex, sectionIndex: currentSectionIndex, fromBeat: position)
@@ -452,11 +543,12 @@ final class BridgeService: ObservableObject {
                songs[songIndex].sections.indices.contains(sectionIndex) {
                 pendingJumpPosition = songs[songIndex].sections[sectionIndex].position
             }
-            if webSocketTask == nil {
-                // No live bridge to confirm the launch (Simulator preview or
-                // on-device demo mode) — simulate Ableton's quantization so the
-                // queued section pulses, then jumps on the next bar boundary.
-                scheduleDemoJumpConfirm(songIndex: songIndex, sectionIndex: sectionIndex)
+            if isDemoMode {
+                // Fake-bridge launch quantization: the ticker snaps the playhead to
+                // the target at the next bar, which flows back through applyTransport
+                // exactly like a real bridge's position-confirmation message.
+                let beatsPerBar = Double(timeSignatureNumerator)
+                demoJumpLaunchBeat = (floor(demoPlayheadBeat / beatsPerBar) + 1) * beatsPerBar
             }
         } else {
             // Stopped — snap the UI immediately, no quantization needed.
@@ -469,43 +561,11 @@ final class BridgeService: ObservableObject {
                 let targetPosition = songs[songIndex].sections[sectionIndex].position
                 pendingJumpPosition = targetPosition
                 position = targetPosition
+                demoPlayheadBeat = targetPosition   // keep the demo playhead in sync
                 activateSection(songIndex: songIndex, sectionIndex: sectionIndex, fromBeat: targetPosition)
             }
         }
         send(["type": "jump", "song_index": songIndex, "section_index": sectionIndex])
-    }
-
-    /// Offline stand-in for Ableton's launch-quantized jump confirmation, used
-    /// when no bridge is connected (Simulator preview or on-device demo mode).
-    /// A queued section stays pulsing until the next bar boundary, then the jump
-    /// is applied and playback continues from there — mirroring live behavior.
-    private func scheduleDemoJumpConfirm(songIndex: Int, sectionIndex: Int) {
-        demoJumpTask?.cancel()
-        autoAdvanceTask?.cancel()   // don't let the current section auto-advance while a jump is pending
-        guard tempo > 0 else { return }
-
-        let beatsPerBar = Double(timeSignatureNumerator)
-        let elapsed = Date().timeIntervalSince(sectionAnchorDate)
-        let currentBeat = sectionAnchorBeat + elapsed * tempo / 60.0
-        let nextBar = (floor(currentBeat / beatsPerBar) + 1) * beatsPerBar
-        let seconds = max(0.25, (nextBar - currentBeat) * 60.0 / tempo)
-
-        demoJumpTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(seconds))
-            guard let self, !Task.isCancelled, self.webSocketTask == nil,
-                  self.queuedSongIndex == songIndex, self.queuedSectionIndex == sectionIndex,
-                  self.songs.indices.contains(songIndex),
-                  self.songs[songIndex].sections.indices.contains(sectionIndex) else { return }
-
-            self.queuedSongIndex = -1
-            self.queuedSectionIndex = -1
-            self.pendingJumpPosition = nil
-            self.currentSongIndex = songIndex
-            self.currentSectionIndex = sectionIndex
-            let target = self.songs[songIndex].sections[sectionIndex].position
-            self.position = target
-            self.activateSection(songIndex: songIndex, sectionIndex: sectionIndex, fromBeat: target)
-        }
     }
 
     func reorderSetlist(from source: Int, to destination: Int) {
@@ -535,12 +595,12 @@ final class BridgeService: ObservableObject {
         isPlaying = false
         sectionAnchorBeat = position // freeze progress at current position
         autoAdvanceTask?.cancel()
-        demoJumpTask?.cancel()
         if webSocketTask == nil {
             // Clear any pending offline jump so it doesn't keep pulsing while stopped.
             queuedSongIndex = -1
             queuedSectionIndex = -1
             pendingJumpPosition = nil
+            demoJumpLaunchBeat = nil
         }
         send(["type": "transport", "action": "stop"])
     }
