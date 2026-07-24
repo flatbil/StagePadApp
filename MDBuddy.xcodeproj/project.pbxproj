@@ -17,6 +17,7 @@
 		89091D8E0352FF87FB7692A3 /* TransportBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 026080DD6E8322D9F27335A4 /* TransportBarView.swift */; };
 		A20F00C210A3A0B2DBF4CD52 /* StagePadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA51D1698B247E089B9646F2 /* StagePadApp.swift */; };
 		C4AD7B04F7E2676ED5FA56E4 /* BridgeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D424C791E25E16386F318BC /* BridgeService.swift */; };
+		003034AC8F279A3012463955 /* DemoWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC31D4EE743113A2614F9E13 /* DemoWelcomeView.swift */; };
 		D78CC0908853294EFEF182DA /* Song.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04C6F2B52FF53FBDAD436C0 /* Song.swift */; };
 		DEEE24BFB14311B46EE744A6 /* SectionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74ACA3DB81299B84C4A249EE /* SectionButton.swift */; };
 		E0F4EBCB5D4B301567028496 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDDF44F0DB1453DC2A90A645 /* ContentView.swift */; };
@@ -28,6 +29,7 @@
 		0E368157E5FC39D5C12CC2B2 /* SongSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongSelectorView.swift; sourceTree = "<group>"; };
 		287DC85CAB15D68B3DC791D2 /* SectionGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionGridView.swift; sourceTree = "<group>"; };
 		2D424C791E25E16386F318BC /* BridgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeService.swift; sourceTree = "<group>"; };
+		AC31D4EE743113A2614F9E13 /* DemoWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoWelcomeView.swift; sourceTree = "<group>"; };
 		449BDEE8127AC2459B8BA254 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6B99792BACB31C6A63D484EC /* InfoBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoBarView.swift; sourceTree = "<group>"; };
 		74ACA3DB81299B84C4A249EE /* SectionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionButton.swift; sourceTree = "<group>"; };
@@ -63,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				EDDF44F0DB1453DC2A90A645 /* ContentView.swift */,
+				AC31D4EE743113A2614F9E13 /* DemoWelcomeView.swift */,
 				6B99792BACB31C6A63D484EC /* InfoBarView.swift */,
 				AE4E615F4ED007C22F4E0875 /* LaunchScreenView.swift */,
 				74ACA3DB81299B84C4A249EE /* SectionButton.swift */,
@@ -174,6 +177,7 @@
 			files = (
 				C4AD7B04F7E2676ED5FA56E4 /* BridgeService.swift in Sources */,
 				E0F4EBCB5D4B301567028496 /* ContentView.swift in Sources */,
+				003034AC8F279A3012463955 /* DemoWelcomeView.swift in Sources */,
 				6FED3A1826B579AC7DE5C640 /* InfoBarView.swift in Sources */,
 				43E229B4CBA86C8D2FC0B87C /* LaunchScreenView.swift in Sources */,
 				FF22C5B7CD61C9565FC34A2A /* PreviewData.swift in Sources */,
