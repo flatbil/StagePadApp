@@ -8,6 +8,7 @@ struct LaunchScreenView: View {
     var onSearch: () -> Void
     var onDemo: () -> Void
     @EnvironmentObject var bridge: BridgeService
+    @AppStorage("orgLogoData") private var orgLogoData: Data = Data()
     @State private var pulsing = false
     @State private var showingSettings = false
     @State private var searching = false
@@ -19,10 +20,7 @@ struct LaunchScreenView: View {
 
             VStack(spacing: 0) {
                 Spacer()
-                Image("GatewayIcon")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 140, height: 140)
+                orgLogoView
                     .scaleEffect(pulsing ? 1.08 : 0.95)
                     .opacity(pulsing ? 1.0 : 0.65)
                     .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulsing)
@@ -50,6 +48,25 @@ struct LaunchScreenView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView().environmentObject(bridge)
         }
+    }
+
+    // MARK: - Logo
+
+    private var orgLogoView: some View {
+        Group {
+            if let ui = UIImage(data: orgLogoData), !orgLogoData.isEmpty {
+                Image(uiImage: ui)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Image(systemName: "waveform")
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(.black.opacity(0.55))
+                    .padding(28)
+            }
+        }
+        .frame(width: 140, height: 140)
     }
 
     // MARK: - Menu (initial choice)

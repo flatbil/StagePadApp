@@ -1,8 +1,11 @@
 import SwiftUI
+import PhotosUI
 
 struct SettingsView: View {
     @EnvironmentObject var bridge: BridgeService
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("orgLogoData") private var orgLogoData: Data = Data()
+    @State private var logoPickerItem: PhotosPickerItem?
     @State private var hostInput: String = ""
     @State private var cueTrackName: String = "Cues"
     @State private var cueGenerating: Bool = false
@@ -11,6 +14,56 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
+
+                // Organization logo
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Organization Logo")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 6)
+
+                    HStack(spacing: 16) {
+                        if let ui = UIImage(data: orgLogoData), !orgLogoData.isEmpty {
+                            Image(uiImage: ui)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 56, height: 56)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        } else {
+                            Image(systemName: "waveform")
+                                .font(.system(size: 28))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 56, height: 56)
+                                .background(Color(.tertiarySystemBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            PhotosPicker(selection: $logoPickerItem, matching: .images) {
+                                Text(orgLogoData.isEmpty ? "Choose Logo…" : "Change Logo")
+                                    .font(.footnote.weight(.medium))
+                            }
+                            if !orgLogoData.isEmpty {
+                                Button("Remove") { orgLogoData = Data() }
+                                    .font(.footnote)
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                }
+                .onChange(of: logoPickerItem) { _, item in
+                    Task {
+                        if let data = try? await item?.loadTransferable(type: Data.self) {
+                            orgLogoData = data
+                        }
+                    }
+                }
 
                 // Connection info
                 VStack(alignment: .leading, spacing: 0) {
