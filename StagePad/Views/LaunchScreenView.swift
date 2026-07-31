@@ -59,11 +59,10 @@ struct LaunchScreenView: View {
                     .resizable()
                     .scaledToFit()
             } else {
-                Image(systemName: "waveform")
+                Image("AppLogo")
                     .resizable()
                     .scaledToFit()
-                    .foregroundStyle(.black.opacity(0.55))
-                    .padding(28)
+                    .clipShape(RoundedRectangle(cornerRadius: 22))
             }
         }
         .frame(width: 140, height: 140)

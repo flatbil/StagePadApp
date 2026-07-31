@@ -31,12 +31,11 @@ struct SettingsView: View {
                                 .frame(width: 56, height: 56)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                         } else {
-                            Image(systemName: "waveform")
-                                .font(.system(size: 28))
-                                .foregroundStyle(.secondary)
+                            Image("AppLogo")
+                                .resizable()
+                                .scaledToFit()
                                 .frame(width: 56, height: 56)
-                                .background(Color(.tertiarySystemBackground))
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
 
                         VStack(alignment: .leading, spacing: 6) {
