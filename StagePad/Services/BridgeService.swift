@@ -86,6 +86,7 @@ final class BridgeService: ObservableObject {
     @Published var queuedSongIndex: Int = -1
     @Published var queuedSectionIndex: Int = -1
     @Published var isDemoMode: Bool = false
+    @Published var tracks: [BridgeTrack] = []
 
     // Section timing — read by TimelineView in SectionButtonWrapper at render time.
     // Not @Published: changing these must not trigger re-renders; TimelineView polls them.
@@ -517,6 +518,15 @@ final class BridgeService: ObservableObject {
             }
         }
 
+        // 2. Track list — present in state messages and dedicated tracks messages.
+        let rawTracks = json["tracks"] as? [[String: Any]]
+        if let rawTracks {
+            applyTracks(rawTracks, applyPreset: type == "state")
+        }
+
+        // 3. Lightweight tracks-only update (mute toggle confirmed by bridge).
+        if type == "tracks" { return }
+
         // Metadata, position, playing state, and section indices are applied
         // through applyTransport — the single path shared with the demo simulator.
         // forceActivate on state messages ensures section bounds are refreshed
@@ -530,6 +540,18 @@ final class BridgeService: ObservableObject {
             sectionIndex: json["current_section_index"] as? Int,
             forceActivate: type == "state"
         )
+    }
+
+    private func applyTracks(_ raw: [[String: Any]], applyPreset: Bool) {
+        tracks = raw.compactMap { d in
+            guard let idx = d["index"] as? Int,
+                  let name = d["name"] as? String,
+                  let muted = d["muted"] as? Bool else { return nil }
+            return BridgeTrack(id: idx, name: name, isMuted: muted)
+        }
+        if applyPreset, currentSongIndex >= 0, songs.indices.contains(currentSongIndex) {
+            applyTrackPreset(for: songs[currentSongIndex].name)
+        }
     }
 
     /// Apply a transport snapshot to published state. Both the live bridge message
@@ -602,9 +624,13 @@ final class BridgeService: ObservableObject {
             if let sectionIndex { currentSectionIndex = sectionIndex }
             if (currentSongIndex != prevSong || currentSectionIndex != prevSection || forceActivate),
                currentSongIndex >= 0, currentSectionIndex >= 0 {
-                // New song → reset measured tempo so we don't interpolate with the
-                // previous song's BPM while waiting for the first beat of the new song.
-                if currentSongIndex != prevSong { interpolationTempo = 0 }
+                // New song → reset measured tempo and apply saved track preset.
+                if currentSongIndex != prevSong {
+                    interpolationTempo = 0
+                    if songs.indices.contains(currentSongIndex) {
+                        applyTrackPreset(for: songs[currentSongIndex].name)
+                    }
+                }
                 // In live mode the section arriving at the queued target IS the confirmation.
                 if currentSongIndex == queuedSongIndex && currentSectionIndex == queuedSectionIndex {
                     queuedSongIndex = -1
@@ -669,6 +695,32 @@ final class BridgeService: ObservableObject {
             }
         }
         send(["type": "jump", "song_index": songIndex, "section_index": sectionIndex])
+    }
+
+    func toggleTrackMute(trackIndex: Int) {
+        guard let idx = tracks.firstIndex(where: { $0.id == trackIndex }) else { return }
+        let newMuted = !tracks[idx].isMuted
+        tracks[idx].isMuted = newMuted
+        send(["type": "mute_track", "track_index": trackIndex, "muted": newMuted])
+        saveTrackPreset()
+    }
+
+    private func saveTrackPreset() {
+        guard currentSongIndex >= 0, songs.indices.contains(currentSongIndex) else { return }
+        let key = "trackMutes_\(songs[currentSongIndex].name)"
+        UserDefaults.standard.set(tracks.map(\.isMuted), forKey: key)
+    }
+
+    private func applyTrackPreset(for songName: String) {
+        let key = "trackMutes_\(songName)"
+        guard let saved = UserDefaults.standard.array(forKey: key) as? [Bool],
+              !tracks.isEmpty else { return }
+        for (i, muted) in saved.enumerated() {
+            guard i < tracks.count else { break }
+            guard tracks[i].isMuted != muted else { continue }
+            tracks[i].isMuted = muted
+            send(["type": "mute_track", "track_index": tracks[i].id, "muted": muted])
+        }
     }
 
     func reorderSetlist(from source: Int, to destination: Int) {

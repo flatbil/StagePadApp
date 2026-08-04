@@ -5,6 +5,7 @@ struct ContentView: View {
     @EnvironmentObject var bridge: BridgeService
     @State private var selectedSongIndex: Int = 0
     @State private var showingSettings = false
+    @State private var showingTracks = false
 
     private var currentSongName: String {
         guard bridge.songs.indices.contains(bridge.currentSongIndex) else { return "—" }
@@ -50,6 +51,7 @@ struct ContentView: View {
                     statusColor: statusColor,
                     isDemo: bridge.isDemoMode,
                     onSettingsTap: { showingSettings = true },
+                    onTracksTap: { showingTracks = true },
                     onDemoTap: onExitToMenu
                 )
 
@@ -85,6 +87,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView().environmentObject(bridge)
+        }
+        .sheet(isPresented: $showingTracks) {
+            TrackMixerView().environmentObject(bridge)
         }
         .onChange(of: bridge.currentSongIndex) { _, newIndex in
             if newIndex >= 0 { selectedSongIndex = newIndex }

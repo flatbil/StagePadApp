@@ -9,6 +9,7 @@ struct InfoBarView: View {
     let statusColor: Color
     var isDemo: Bool = false
     let onSettingsTap: () -> Void
+    let onTracksTap: () -> Void
     var onDemoTap: (() -> Void)? = nil
 
     @State private var pingingPlaying = false
@@ -111,13 +112,18 @@ struct InfoBarView: View {
     private var controls: some View {
         HStack(spacing: 14) {
             Circle().fill(statusColor).frame(width: 8, height: 8)
+            Button(action: onTracksTap) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 18))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
             Button(action: onSettingsTap) {
                 Image(systemName: "gear")
                     .font(.system(size: 18))
                     .foregroundStyle(.white.opacity(0.5))
             }
         }
-        .frame(width: 70, alignment: .trailing)
+        .frame(width: 100, alignment: .trailing)
     }
 
     private func bouncingCell(label: String, value: String, scale: CGFloat, offset: CGFloat) -> some View {

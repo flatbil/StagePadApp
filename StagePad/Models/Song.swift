@@ -1,5 +1,11 @@
 import SwiftUI
 
+struct BridgeTrack: Identifiable {
+    let id: Int      // Ableton track index — stable for the life of the session
+    let name: String
+    var isMuted: Bool
+}
+
 struct Section: Identifiable, Decodable {
     let id = UUID()
     let name: String
