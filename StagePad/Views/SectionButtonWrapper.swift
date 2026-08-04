@@ -51,12 +51,15 @@ struct SectionButtonWrapper: View {
 
     private func computedProgress(at now: Date) -> Double {
         let length = bridge.sectionEndBeat - bridge.sectionStartBeat
-        guard bridge.tempo > 0, length > 0 else { return 0 }
+        // Prefer measured tempo (derived from actual beat timing) over reported tempo.
+        // This handles per-song BPM changes and stale AbletonOSC tempo values.
+        let bpm = bridge.interpolationTempo > 0 ? bridge.interpolationTempo : bridge.tempo
+        guard bpm > 0, length > 0 else { return 0 }
 
         let anchorBeat: Double
         if bridge.isPlaying {
             let elapsed = max(0, now.timeIntervalSince(bridge.sectionAnchorDate))
-            anchorBeat = bridge.sectionAnchorBeat + elapsed * bridge.tempo / 60.0
+            anchorBeat = bridge.sectionAnchorBeat + elapsed * bpm / 60.0
         } else {
             anchorBeat = bridge.sectionAnchorBeat
         }

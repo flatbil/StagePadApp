@@ -106,13 +106,16 @@ final class BridgeService: ObservableObject {
     private let session = URLSession(configuration: .default)
     private let discovery = BridgeDiscovery()
 
-    // Pending jump — suppress server position/section updates until Ableton
-    // reaches the target (avoids snap-back during launch quantization hold)
+    // Pending jump — only used in demo mode to gate the fake-bridge ticker.
     private var pendingJumpPosition: Double? = nil
 
-    /// True while waiting for Ableton to confirm the jump has launched.
-    /// Progress bars should freeze until this clears.
-    var isJumpPending: Bool { pendingJumpPosition != nil }
+    // Real-time BPM measured from consecutive beat-update timestamps.
+    // More reliable than Ableton's reported tempo: auto-adapts to per-song BPM
+    // changes in the arrangement without depending on AbletonOSC tempo messages.
+    // Reset to 0 on song change or disconnect; falls back to reported tempo.
+    var interpolationTempo: Double = 0
+    private var prevAnchorPosition: Double = -1
+    private var prevAnchorDate: Date = Date()
 
     // The host currently in use — set by Bonjour discovery or manual entry
     private var activeHost: String = ""
@@ -207,6 +210,8 @@ final class BridgeService: ObservableObject {
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         connectionState = .disconnected
+        interpolationTempo = 0
+        prevAnchorPosition = -1
     }
 
     /// Load preview data so the UI is explorable without a bridge connection.
@@ -416,14 +421,15 @@ final class BridgeService: ObservableObject {
         // the client-side prediction is unnecessary and would double-advance.
         guard !isDemoMode, isPlaying, tempo > 0 else { return }
 
-        // Estimate where we are right now using elapsed wall-clock time since
-        // the last server-confirmed anchor. This keeps the timer accurate after
-        // a tempo change — the old task used the stale bpm and would fire early.
+        // Use measured tempo when available — it's derived from actual beat timing
+        // and adapts to per-song BPM changes faster than the reported value.
+        let effectiveTempo = interpolationTempo > 0 ? interpolationTempo : tempo
+
         let elapsed = Date().timeIntervalSince(sectionAnchorDate)
-        let estimatedBeat = sectionAnchorBeat + elapsed * tempo / 60.0
+        let estimatedBeat = sectionAnchorBeat + elapsed * effectiveTempo / 60.0
         guard sectionEndBeat > estimatedBeat else { return }
 
-        let secondsRemaining = (sectionEndBeat - estimatedBeat) * 60.0 / tempo
+        let secondsRemaining = (sectionEndBeat - estimatedBeat) * 60.0 / effectiveTempo
         let fromSong    = currentSongIndex
         let fromSection = currentSectionIndex
         autoAdvanceTask = Task {
@@ -551,9 +557,21 @@ final class BridgeService: ObservableObject {
                 }
                 // else: not there yet — hold the current section, discard update
             } else {
+                let now = Date()
+                // Measure real BPM from consecutive beat-level updates.
+                // Beat updates advance position by ~1 beat; filter out sub-beat
+                // current_song_time updates (dp < 0.5) and position resets (dp < 0).
+                let dp = pos - prevAnchorPosition
+                let dt = now.timeIntervalSince(prevAnchorDate)
+                if prevAnchorPosition >= 0, dp > 0.5, dp < 4.0, dt > 0.1, dt < 4.0 {
+                    let measured = dp / dt * 60.0
+                    if measured > 20 && measured < 300 { interpolationTempo = measured }
+                }
+                prevAnchorPosition = pos
+                prevAnchorDate = now
                 position = pos
                 sectionAnchorBeat = pos
-                sectionAnchorDate = Date()
+                sectionAnchorDate = now
             }
         }
 
@@ -578,6 +596,9 @@ final class BridgeService: ObservableObject {
             if let sectionIndex { currentSectionIndex = sectionIndex }
             if (currentSongIndex != prevSong || currentSectionIndex != prevSection),
                currentSongIndex >= 0, currentSectionIndex >= 0 {
+                // New song → reset measured tempo so we don't interpolate with the
+                // previous song's BPM while waiting for the first beat of the new song.
+                if currentSongIndex != prevSong { interpolationTempo = 0 }
                 // In live mode the section arriving at the queued target IS the confirmation.
                 if currentSongIndex == queuedSongIndex && currentSectionIndex == queuedSectionIndex {
                     queuedSongIndex = -1
