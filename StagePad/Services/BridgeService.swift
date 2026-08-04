@@ -97,6 +97,7 @@ final class BridgeService: ObservableObject {
     private var webSocketTask: URLSessionWebSocketTask?
     private var reconnectTask: Task<Void, Never>?
     private var autoAdvanceTask: Task<Void, Never>?
+    private var jumpTimeoutTask: Task<Void, Never>?
     // Demo simulator ("fake bridge") state.
     private var demoTickerTask: Task<Void, Never>?
     private var demoPlayheadBeat: Double = 0
@@ -360,6 +361,21 @@ final class BridgeService: ObservableObject {
         }
     }
 
+    private func scheduleJumpTimeout() {
+        jumpTimeoutTask?.cancel()
+        jumpTimeoutTask = Task {
+            // 6 seconds covers 2 bars even at 40 BPM — if the jump hasn't confirmed
+            // by then, something went wrong; let normal updates resume.
+            try? await Task.sleep(for: .seconds(6))
+            guard !Task.isCancelled else { return }
+            if pendingJumpPosition != nil {
+                pendingJumpPosition = nil
+                queuedSongIndex = -1
+                queuedSectionIndex = -1
+            }
+        }
+    }
+
     private func scheduleReconnect() {
         guard reconnectTask == nil, connectionState != .rejected else { return }
         reconnectTask = Task {
@@ -529,6 +545,8 @@ final class BridgeService: ObservableObject {
                     pendingJumpPosition = nil
                     queuedSongIndex = -1
                     queuedSectionIndex = -1
+                    jumpTimeoutTask?.cancel()
+                    jumpTimeoutTask = nil
                     position = pos
                     sectionAnchorBeat = pos
                     sectionAnchorDate = Date()
@@ -577,6 +595,7 @@ final class BridgeService: ObservableObject {
             if songs.indices.contains(songIndex),
                songs[songIndex].sections.indices.contains(sectionIndex) {
                 pendingJumpPosition = songs[songIndex].sections[sectionIndex].position
+                scheduleJumpTimeout()
             }
             if isDemoMode {
                 // Fake-bridge launch quantization: the ticker snaps the playhead to

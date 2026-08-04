@@ -54,7 +54,7 @@ struct SectionButtonWrapper: View {
         guard bridge.tempo > 0, length > 0 else { return 0 }
 
         let anchorBeat: Double
-        if bridge.isPlaying && !bridge.isJumpPending {
+        if bridge.isPlaying {
             let elapsed = max(0, now.timeIntervalSince(bridge.sectionAnchorDate))
             anchorBeat = bridge.sectionAnchorBeat + elapsed * bridge.tempo / 60.0
         } else {
