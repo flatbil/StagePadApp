@@ -519,21 +519,27 @@ final class BridgeService: ObservableObject {
 
         // Metadata, position, playing state, and section indices are applied
         // through applyTransport — the single path shared with the demo simulator.
+        // forceActivate on state messages ensures section bounds are refreshed
+        // after reconnects or mid-set cue edits, even if indices didn't change.
         applyTransport(
             tempo: json["tempo"] as? Double,
             timeSigNum: json["time_signature_numerator"] as? Int,
             position: json["position"] as? Double,
             isPlaying: json["is_playing"] as? Bool,
             songIndex: json["current_song_index"] as? Int,
-            sectionIndex: json["current_section_index"] as? Int
+            sectionIndex: json["current_section_index"] as? Int,
+            forceActivate: type == "state"
         )
     }
 
     /// Apply a transport snapshot to published state. Both the live bridge message
     /// handler and the demo simulator feed this one path, so jump-quantization
     /// suppression, section activation, and progress behave identically in both.
+    /// forceActivate re-runs activateSection even when indices are unchanged —
+    /// needed after a state message refreshes the song list (cue positions may differ).
     private func applyTransport(tempo t: Double?, timeSigNum: Int?, position pos: Double?,
-                                isPlaying playing: Bool?, songIndex: Int?, sectionIndex: Int?) {
+                                isPlaying playing: Bool?, songIndex: Int?, sectionIndex: Int?,
+                                forceActivate: Bool = false) {
         // Tempo / time signature (needed before activateSection).
         let prevTempo = tempo
         if let t { tempo = t }
@@ -594,7 +600,7 @@ final class BridgeService: ObservableObject {
             let prevSection = currentSectionIndex
             if let songIndex { currentSongIndex = songIndex }
             if let sectionIndex { currentSectionIndex = sectionIndex }
-            if (currentSongIndex != prevSong || currentSectionIndex != prevSection),
+            if (currentSongIndex != prevSong || currentSectionIndex != prevSection || forceActivate),
                currentSongIndex >= 0, currentSectionIndex >= 0 {
                 // New song → reset measured tempo so we don't interpolate with the
                 // previous song's BPM while waiting for the first beat of the new song.
