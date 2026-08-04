@@ -24,6 +24,7 @@ struct InfoBarView: View {
             if isDemo {
                 demoBadge
             }
+            tracksButton
             divider
             bouncingCell(label: "SONG", value: currentSongName, scale: songScale, offset: songOffset)
             divider
@@ -109,21 +110,30 @@ struct InfoBarView: View {
         Divider().frame(height: 30).background(.white.opacity(0.15))
     }
 
+    private var tracksButton: some View {
+        Button(action: onTracksTap) {
+            VStack(spacing: 2) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("TRACKS")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+            }
+            .foregroundStyle(.white.opacity(0.6))
+            .frame(width: 58)
+        }
+        .buttonStyle(.plain)
+    }
+
     private var controls: some View {
         HStack(spacing: 14) {
             Circle().fill(statusColor).frame(width: 8, height: 8)
-            Button(action: onTracksTap) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 18))
-                    .foregroundStyle(.white.opacity(0.5))
-            }
             Button(action: onSettingsTap) {
                 Image(systemName: "gear")
                     .font(.system(size: 18))
                     .foregroundStyle(.white.opacity(0.5))
             }
         }
-        .frame(width: 100, alignment: .trailing)
+        .frame(width: 70, alignment: .trailing)
     }
 
     private func bouncingCell(label: String, value: String, scale: CGFloat, offset: CGFloat) -> some View {
