@@ -33,7 +33,7 @@ struct TrackMixerView: View {
                     ForEach(bridge.tracks) { track in
                         HStack {
                             Image(systemName: track.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                                .foregroundStyle(track.isMuted ? .secondary : .green)
+                                .foregroundStyle(track.isMuted ? Color.gray : Color.green)
                                 .frame(width: 24)
                             Text(track.name)
                                 .foregroundStyle(track.isMuted ? .secondary : .primary)
