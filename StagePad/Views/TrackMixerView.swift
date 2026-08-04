@@ -11,22 +11,26 @@ struct TrackMixerView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            List {
                 if bridge.tracks.isEmpty {
-                    VStack(spacing: 16) {
+                    HStack {
                         Spacer()
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.secondary)
-                        Text("No Tracks")
-                            .font(.title3.weight(.semibold))
-                        Text("Connect to Ableton to see tracks.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        VStack(spacing: 12) {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.secondary)
+                            Text("No tracks found.")
+                                .foregroundStyle(.secondary)
+                            Text("Connect to Ableton to see tracks.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 32)
                         Spacer()
                     }
+                    .listRowSeparator(.hidden)
                 } else {
-                    List(bridge.tracks) { track in
+                    ForEach(bridge.tracks) { track in
                         HStack {
                             Image(systemName: track.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                                 .foregroundStyle(track.isMuted ? .secondary : .green)
@@ -44,9 +48,9 @@ struct TrackMixerView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { bridge.toggleTrackMute(trackIndex: track.id) }
                     }
-                    .listStyle(.insetGrouped)
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle(songName.isEmpty ? "Tracks" : "Tracks — \(songName)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
