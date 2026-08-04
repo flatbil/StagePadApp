@@ -134,7 +134,7 @@ final class BridgeService: ObservableObject {
     func connect() {
         reconnectTask?.cancel()
         reconnectTask = nil
-        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        webSocketTask?.cancel()   // no close frame — socket may already be dead
         webSocketTask = nil
         connectionState = .connecting
 
