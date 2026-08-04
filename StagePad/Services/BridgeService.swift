@@ -364,15 +364,13 @@ final class BridgeService: ObservableObject {
     private func scheduleJumpTimeout() {
         jumpTimeoutTask?.cancel()
         jumpTimeoutTask = Task {
-            // 6 seconds covers 2 bars even at 40 BPM — if the jump hasn't confirmed
-            // by then, something went wrong; let normal updates resume.
+            // 6 seconds covers 2 bars even at 40 BPM — if Ableton hasn't moved to
+            // the queued section by then, clear the queued state and let the UI rest.
             try? await Task.sleep(for: .seconds(6))
             guard !Task.isCancelled else { return }
-            if pendingJumpPosition != nil {
-                pendingJumpPosition = nil
-                queuedSongIndex = -1
-                queuedSectionIndex = -1
-            }
+            pendingJumpPosition = nil
+            queuedSongIndex = -1
+            queuedSectionIndex = -1
         }
     }
 
@@ -571,7 +569,8 @@ final class BridgeService: ObservableObject {
 
         if tempo != prevTempo { scheduleAutoAdvance() }
 
-        // Section indices — activate on organic change (only when no jump pending).
+        // Section indices — suppressed only in demo mode while a fake-bridge jump
+        // is pending (pendingJumpPosition is never set in live bridge mode).
         if pendingJumpPosition == nil {
             let prevSong = currentSongIndex
             let prevSection = currentSectionIndex
@@ -579,6 +578,13 @@ final class BridgeService: ObservableObject {
             if let sectionIndex { currentSectionIndex = sectionIndex }
             if (currentSongIndex != prevSong || currentSectionIndex != prevSection),
                currentSongIndex >= 0, currentSectionIndex >= 0 {
+                // In live mode the section arriving at the queued target IS the confirmation.
+                if currentSongIndex == queuedSongIndex && currentSectionIndex == queuedSectionIndex {
+                    queuedSongIndex = -1
+                    queuedSectionIndex = -1
+                    jumpTimeoutTask?.cancel()
+                    jumpTimeoutTask = nil
+                }
                 activateSection(songIndex: currentSongIndex, sectionIndex: currentSectionIndex, fromBeat: position)
             }
         }
@@ -588,21 +594,22 @@ final class BridgeService: ObservableObject {
 
     func jump(songIndex: Int, sectionIndex: Int) {
         if isPlaying {
-            // Queue the jump — let Ableton's launch quantization fire on beat.
-            // Keep the current section active in the UI until Ableton confirms.
             queuedSongIndex = songIndex
             queuedSectionIndex = sectionIndex
-            if songs.indices.contains(songIndex),
-               songs[songIndex].sections.indices.contains(sectionIndex) {
-                pendingJumpPosition = songs[songIndex].sections[sectionIndex].position
-                scheduleJumpTimeout()
-            }
             if isDemoMode {
-                // Fake-bridge launch quantization: the ticker snaps the playhead to
-                // the target at the next bar, which flows back through applyTransport
-                // exactly like a real bridge's position-confirmation message.
+                // Demo: pendingJumpPosition gates the fake-bridge ticker until the
+                // simulated launch-quantization beat is reached.
+                if songs.indices.contains(songIndex),
+                   songs[songIndex].sections.indices.contains(sectionIndex) {
+                    pendingJumpPosition = songs[songIndex].sections[sectionIndex].position
+                }
                 let beatsPerBar = Double(timeSignatureNumerator)
                 demoJumpLaunchBeat = (floor(demoPlayheadBeat / beatsPerBar) + 1) * beatsPerBar
+            } else {
+                // Live bridge: don't set pendingJumpPosition — position updates must
+                // keep flowing so the anchor stays fresh and the bar doesn't snap.
+                // The section changing to the queued target is confirmation enough.
+                scheduleJumpTimeout()
             }
         } else {
             // Stopped — snap the UI immediately, no quantization needed.
@@ -613,9 +620,9 @@ final class BridgeService: ObservableObject {
             if songs.indices.contains(songIndex),
                songs[songIndex].sections.indices.contains(sectionIndex) {
                 let targetPosition = songs[songIndex].sections[sectionIndex].position
-                pendingJumpPosition = targetPosition
+                if isDemoMode { pendingJumpPosition = targetPosition }
                 position = targetPosition
-                demoPlayheadBeat = targetPosition   // keep the demo playhead in sync
+                demoPlayheadBeat = targetPosition
                 activateSection(songIndex: songIndex, sectionIndex: sectionIndex, fromBeat: targetPosition)
             }
         }
