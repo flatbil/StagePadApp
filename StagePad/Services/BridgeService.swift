@@ -614,23 +614,38 @@ final class BridgeService: ObservableObject {
     // MARK: - Commands
 
     func jump(songIndex: Int, sectionIndex: Int) {
+        // Cancel any pending auto-advance immediately. Without this, a section near
+        // its end auto-advances in the UI before Ableton confirms the jump, flashing
+        // the wrong section. The new auto-advance is rescheduled once the jump lands.
+        autoAdvanceTask?.cancel()
+        autoAdvanceTask = nil
+
         if isPlaying {
-            queuedSongIndex = songIndex
-            queuedSectionIndex = sectionIndex
-            if isDemoMode {
-                // Demo: pendingJumpPosition gates the fake-bridge ticker until the
-                // simulated launch-quantization beat is reached.
-                if songs.indices.contains(songIndex),
-                   songs[songIndex].sections.indices.contains(sectionIndex) {
-                    pendingJumpPosition = songs[songIndex].sections[sectionIndex].position
-                }
-                let beatsPerBar = Double(timeSignatureNumerator)
-                demoJumpLaunchBeat = (floor(demoPlayheadBeat / beatsPerBar) + 1) * beatsPerBar
+            if !isDemoMode && songIndex == currentSongIndex && sectionIndex == currentSectionIndex {
+                // Same-section re-jump in live mode: reset the progress anchor now so
+                // the bar starts over from 0 immediately instead of counting up then
+                // snapping back when Ableton's position update arrives.
+                sectionAnchorBeat = sectionStartBeat
+                sectionAnchorDate = Date()
+                scheduleAutoAdvance()
             } else {
-                // Live bridge: don't set pendingJumpPosition — position updates must
-                // keep flowing so the anchor stays fresh and the bar doesn't snap.
-                // The section changing to the queued target is confirmation enough.
-                scheduleJumpTimeout()
+                queuedSongIndex = songIndex
+                queuedSectionIndex = sectionIndex
+                if isDemoMode {
+                    // Demo: pendingJumpPosition gates the fake-bridge ticker until the
+                    // simulated launch-quantization beat is reached.
+                    if songs.indices.contains(songIndex),
+                       songs[songIndex].sections.indices.contains(sectionIndex) {
+                        pendingJumpPosition = songs[songIndex].sections[sectionIndex].position
+                    }
+                    let beatsPerBar = Double(timeSignatureNumerator)
+                    demoJumpLaunchBeat = (floor(demoPlayheadBeat / beatsPerBar) + 1) * beatsPerBar
+                } else {
+                    // Live bridge: don't set pendingJumpPosition — position updates must
+                    // keep flowing so the anchor stays fresh and the bar doesn't snap.
+                    // The section changing to the queued target is confirmation enough.
+                    scheduleJumpTimeout()
+                }
             }
         } else {
             // Stopped — snap the UI immediately, no quantization needed.
