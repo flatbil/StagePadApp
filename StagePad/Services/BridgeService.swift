@@ -4,6 +4,20 @@ enum ConnectionState: Equatable {
     case disconnected, connecting, connected, rejected
 }
 
+/// A named, saved bridge IP address — lets a user store known locations
+/// (e.g. "Church Tracks Computer") instead of retyping an IP every time.
+struct TrustedHost: Identifiable, Codable, Equatable {
+    let id: UUID
+    var name: String
+    var ipAddress: String
+
+    init(id: UUID = UUID(), name: String, ipAddress: String) {
+        self.id = id
+        self.name = name
+        self.ipAddress = ipAddress
+    }
+}
+
 // Bonjour discovery — finds the bridge on whatever interface is fastest
 // (USB when plugged in, WiFi otherwise) without any manual IP entry.
 @MainActor
@@ -79,6 +93,14 @@ final class BridgeService: ObservableObject {
     @Published var position: Double = 0          // beats from set start — server-side, for measure display
     @Published var isPlaying: Bool = false
     @Published var connectionState: ConnectionState = .disconnected
+    /// Human-readable description of what the connection process is doing right
+    /// now (e.g. "Searching via Bonjour…", "Trying saved IP 10.0.0.101…",
+    /// "Connected to 10.0.0.101") — shown in Settings so the user isn't left
+    /// guessing what the app is attempting.
+    @Published var connectionDetail: String = ""
+    @Published var trustedHosts: [TrustedHost] = [] {
+        didSet { saveTrustedHosts() }
+    }
     @Published var tempo: Double = 0
     @Published var timeSignatureNumerator: Int = 4
     /// Section queued to jump to (awaiting Ableton's beat-quantized confirmation).
@@ -87,6 +109,14 @@ final class BridgeService: ObservableObject {
     @Published var queuedSectionIndex: Int = -1
     @Published var isDemoMode: Bool = false
     @Published var tracks: [BridgeTrack] = []
+    @Published var showCueWarning: Bool = false
+    @Published var cueCount: Int = 0
+    /// False when this device connected as a read-only observer (another
+    /// device already holds primary/control). Set from the "role" field the
+    /// bridge sends on connect; defaults true so demo mode and the moment
+    /// before a role arrives are fully interactive.
+    @Published var isPrimary: Bool = true
+    private var lastNotifiedCueCount: Int = 0
 
     // Section timing — read by TimelineView in SectionButtonWrapper at render time.
     // Not @Published: changing these must not trigger re-renders; TimelineView polls them.
@@ -126,6 +156,43 @@ final class BridgeService: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: "bridge_host") }
     }
 
+    init() {
+        loadTrustedHosts()
+    }
+
+    // MARK: - Trusted hosts (saved, named bridge IPs)
+
+    private static let trustedHostsKey = "trustedHosts"
+
+    private func loadTrustedHosts() {
+        guard let data = UserDefaults.standard.data(forKey: Self.trustedHostsKey),
+              let decoded = try? JSONDecoder().decode([TrustedHost].self, from: data) else { return }
+        trustedHosts = decoded
+    }
+
+    private func saveTrustedHosts() {
+        guard let data = try? JSONEncoder().encode(trustedHosts) else { return }
+        UserDefaults.standard.set(data, forKey: Self.trustedHostsKey)
+    }
+
+    func addTrustedHost(name: String, ipAddress: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        let trimmedIP = ipAddress.trimmingCharacters(in: .whitespaces)
+        guard !trimmedIP.isEmpty else { return }
+        trustedHosts.append(TrustedHost(name: trimmedName.isEmpty ? trimmedIP : trimmedName, ipAddress: trimmedIP))
+    }
+
+    func removeTrustedHost(at offsets: IndexSet) {
+        trustedHosts.remove(atOffsets: offsets)
+    }
+
+    /// Make this the active connection target and reconnect to it immediately —
+    /// the "obvious trusted connection" a user can tap instead of typing an IP.
+    func selectTrustedHost(_ trusted: TrustedHost) {
+        host = trusted.ipAddress
+        connect()
+    }
+
     private func url(for resolvedHost: String) -> URL? {
         // Strip trailing dot from mDNS hostnames (e.g. "host.local." → "host.local")
         let host = resolvedHost.hasSuffix(".") ? String(resolvedHost.dropLast()) : resolvedHost
@@ -142,6 +209,7 @@ final class BridgeService: ObservableObject {
         webSocketTask?.cancel()   // no close frame — socket may already be dead
         webSocketTask = nil
         connectionState = .connecting
+        connectionDetail = "Searching for bridge via Bonjour…"
 
         // Try Bonjour first — resolves to USB interface when iPad is plugged in,
         // WiFi otherwise. Falls back to manual host after 3 seconds.
@@ -149,6 +217,7 @@ final class BridgeService: ObservableObject {
         discovery.onResolved = { [weak self] resolvedHost, _ in
             guard let self else { return }
             self.discovery.stop()
+            self.connectionDetail = "Found via Bonjour — connecting to \(resolvedHost)…"
             self.openSocket(to: resolvedHost)
         }
         discovery.start()
@@ -160,6 +229,7 @@ final class BridgeService: ObservableObject {
             // No Bonjour response yet — connect to manually configured host
             if connectionState == .connecting {
                 discovery.stop()
+                connectionDetail = "Bonjour timed out — trying saved IP \(host)…"
                 openSocket(to: host)
             }
         }
@@ -172,6 +242,7 @@ final class BridgeService: ObservableObject {
 
         guard let socketURL = url(for: resolvedHost) else {
             connectionState = .disconnected
+            connectionDetail = "\"\(resolvedHost)\" isn't a valid address"
             scheduleReconnect()
             return
         }
@@ -189,8 +260,10 @@ final class BridgeService: ObservableObject {
                 guard let self, self.receiveGeneration == generation else { return }
                 if error == nil {
                     self.connectionState = .connected
+                    self.connectionDetail = "Connected to \(resolvedHost)"
                 } else {
                     self.connectionState = .disconnected
+                    self.connectionDetail = "Could not reach \(resolvedHost)"
                     self.scheduleReconnect()
                 }
             }
@@ -211,6 +284,7 @@ final class BridgeService: ObservableObject {
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         connectionState = .disconnected
+        connectionDetail = ""
         interpolationTempo = 0
         prevAnchorPosition = -1
     }
@@ -220,7 +294,9 @@ final class BridgeService: ObservableObject {
     /// when the bridge comes online and real data will replace demo data.
     func enterDemoMode() {
         isDemoMode = true
+        isPrimary = true
         songs = Song.previewSongs
+        tracks = BridgeTrack.previewTracks
         setlistOrder = Array(songs.indices)
         tempo = 120
         timeSignatureNumerator = 4
@@ -361,6 +437,7 @@ final class BridgeService: ObservableObject {
                     self.receive(generation: generation)
                 case .failure:
                     self.connectionState = .disconnected
+                    self.connectionDetail = "Connection lost — reconnecting…"
                     self.scheduleReconnect()
                 }
             }
@@ -504,6 +581,7 @@ final class BridgeService: ObservableObject {
 
         // 1. Song list (state message only)
         if type == "state", let songsData = try? JSONSerialization.data(withJSONObject: json["songs"] ?? []) {
+            if let role = json["role"] as? String { isPrimary = (role == "primary") }
             let newSongs = (try? JSONDecoder().decode([Song].self, from: songsData)) ?? []
             songs = newSongs
             // Reset setlist order when song count changes (new set loaded).
@@ -515,6 +593,18 @@ final class BridgeService: ObservableObject {
                 } else {
                     setlistOrder = Array(newSongs.indices)
                 }
+            }
+
+            // Warn when cue count grows past the threshold — fires each time a new
+            // marker is added while already over the limit.
+            if let count = json["cue_count"] as? Int,
+               let isWarning = json["cue_warning"] as? Bool,
+               isWarning, count > lastNotifiedCueCount {
+                cueCount = count
+                lastNotifiedCueCount = count
+                showCueWarning = true
+            } else if let count = json["cue_count"] as? Int {
+                cueCount = count
             }
         }
 
@@ -646,6 +736,7 @@ final class BridgeService: ObservableObject {
     // MARK: - Commands
 
     func jump(songIndex: Int, sectionIndex: Int) {
+        guard isPrimary else { return }   // observers can look ahead but not jump
         // Cancel any pending auto-advance immediately. Without this, a section near
         // its end auto-advances in the UI before Ableton confirms the jump, flashing
         // the wrong section. The new auto-advance is rescheduled once the jump lands.
@@ -698,6 +789,7 @@ final class BridgeService: ObservableObject {
     }
 
     func toggleTrackMute(trackIndex: Int) {
+        guard isPrimary else { return }
         guard let idx = tracks.firstIndex(where: { $0.id == trackIndex }) else { return }
         let newMuted = !tracks[idx].isMuted
         tracks[idx].isMuted = newMuted
@@ -736,10 +828,12 @@ final class BridgeService: ObservableObject {
     }
 
     func generateCues(trackName: String = "Cues") {
+        guard isPrimary else { return }
         send(["type": "generate_cues", "track_name": trackName])
     }
 
     func play() {
+        guard isPrimary else { return }
         isPlaying = true
         sectionAnchorDate = Date()   // restart elapsed-time from now so progress doesn't jump
         scheduleAutoAdvance()
@@ -747,6 +841,7 @@ final class BridgeService: ObservableObject {
     }
 
     func stop() {
+        guard isPrimary else { return }
         isPlaying = false
         sectionAnchorBeat = position // freeze progress at current position
         autoAdvanceTask?.cancel()
@@ -763,6 +858,7 @@ final class BridgeService: ObservableObject {
     func refresh() { send(["type": "refresh"]) }
 
     func releaseControl() {
+        guard isPrimary else { return }
         send(["type": "release_control"])
     }
 

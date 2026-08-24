@@ -29,6 +29,7 @@ struct ContentView: View {
     }
 
     private var statusColor: Color {
+        if ProcessInfo.processInfo.arguments.contains("-UITestDemoMode") { return .green }
         if bridge.isDemoMode { return .orange }
         switch bridge.connectionState {
         case .connected:    return .green
@@ -49,7 +50,8 @@ struct ContentView: View {
                     tempo: bridge.tempo,
                     measure: currentMeasure,
                     statusColor: statusColor,
-                    isDemo: bridge.isDemoMode,
+                    isDemo: bridge.isDemoMode && !ProcessInfo.processInfo.arguments.contains("-UITestDemoMode"),
+                    isObserver: !bridge.isPrimary && bridge.connectionState == .connected,
                     onSettingsTap: { showingSettings = true },
                     onTracksTap: { showingTracks = true },
                     onDemoTap: onExitToMenu
@@ -71,6 +73,11 @@ struct ContentView: View {
                         currentSectionIndex: bridge.currentSectionIndex,
                         onTap: { bridge.jump(songIndex: selectedSongIndex, sectionIndex: $0) }
                     )
+                    // Observers can still scroll/browse sections to look ahead —
+                    // this only blocks the tap-to-jump gesture. jump() also
+                    // guards server-side, so this is a UX cue, not the only gate.
+                    .allowsHitTesting(bridge.isPrimary)
+                    .opacity(bridge.isPrimary ? 1.0 : 0.6)
                 } else {
                     emptyState
                 }
@@ -78,8 +85,9 @@ struct ContentView: View {
                 TransportBarView(
                     isPlaying: bridge.isPlaying,
                     // Demo mode drives its own local playback, so enable transport
-                    // there too (not just on a live bridge connection).
-                    isConnected: bridge.connectionState == .connected || bridge.isDemoMode,
+                    // there too (not just on a live bridge connection). Observers
+                    // never get transport control.
+                    isConnected: (bridge.connectionState == .connected || bridge.isDemoMode) && bridge.isPrimary,
                     onPlay: { bridge.play() },
                     onStop: { bridge.stop() }
                 )
@@ -91,8 +99,22 @@ struct ContentView: View {
         .sheet(isPresented: $showingTracks) {
             TrackMixerView().environmentObject(bridge)
         }
+        .alert("Too Many Markers", isPresented: $bridge.showCueWarning) {
+            Button("OK") { bridge.showCueWarning = false }
+        } message: {
+            Text("Your Ableton set has \(bridge.cueCount) cue markers — above the recommended limit of 500. At very high counts, some markers may not be received. Consider splitting your set across multiple Ableton projects.")
+        }
         .onChange(of: bridge.currentSongIndex) { _, newIndex in
             if newIndex >= 0 { selectedSongIndex = newIndex }
+        }
+        .onAppear {
+            // Screenshot automation hooks — never present outside `simctl launch --args`.
+            if ProcessInfo.processInfo.arguments.contains("-UITestShowTracks") {
+                showingTracks = true
+            }
+            if ProcessInfo.processInfo.arguments.contains("-UITestShowSettings") {
+                showingSettings = true
+            }
         }
     }
 

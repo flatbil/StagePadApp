@@ -135,9 +135,12 @@ struct LaunchScreenView: View {
         case .rejected:  return "Another device is connected"
         case .connected: return "Connected"
         default:
-            return searchTimedOut
-                ? "Bridge not found — still searching…\nMake sure the Bridge and Ableton are running\non the same Wi-Fi network."
-                : "Searching for Ableton Bridge…"
+            if searchTimedOut {
+                return "Bridge not found — still searching…\nMake sure the Bridge and Ableton are running\non the same Wi-Fi network."
+            }
+            // Show exactly what's happening (Bonjour vs. a saved IP) instead of
+            // a generic message the whole time — same fix as the Settings status line.
+            return bridge.connectionDetail.isEmpty ? "Searching for Ableton Bridge…" : bridge.connectionDetail
         }
     }
 

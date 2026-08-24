@@ -1,5 +1,18 @@
 import Foundation
 
+extension BridgeTrack {
+    static let previewTracks: [BridgeTrack] = [
+        BridgeTrack(id: 0, name: "Click",     isMuted: false),
+        BridgeTrack(id: 1, name: "Guide",     isMuted: false),
+        BridgeTrack(id: 2, name: "Drums",     isMuted: false),
+        BridgeTrack(id: 3, name: "Bass",      isMuted: false),
+        BridgeTrack(id: 4, name: "Keys",      isMuted: true),
+        BridgeTrack(id: 5, name: "Pads",      isMuted: false),
+        BridgeTrack(id: 6, name: "Acoustic",  isMuted: false),
+        BridgeTrack(id: 7, name: "Strings",   isMuted: true),
+    ]
+}
+
 extension Song {
     static let previewSongs: [Song] = [
         Song(

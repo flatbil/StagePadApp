@@ -7,9 +7,12 @@ struct SettingsView: View {
     @AppStorage("orgLogoData") private var orgLogoData: Data = Data()
     @State private var logoPickerItem: PhotosPickerItem?
     @State private var hostInput: String = ""
+    @State private var newHostName: String = ""
+    @State private var showingHelp = false
 
     var body: some View {
         NavigationStack {
+            ScrollView {
             VStack(alignment: .leading, spacing: 20) {
 
                 // Organization logo
@@ -78,21 +81,96 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .padding()
+
+                        if !bridge.connectionDetail.isEmpty {
+                            Divider()
+                            HStack {
+                                Image(systemName: "info.circle")
+                                    .foregroundStyle(.blue)
+                                Text(bridge.connectionDetail)
+                                    .font(.footnote.weight(.medium))
+                                    .foregroundStyle(.primary)
+                            }
+                            .padding()
+                        }
                     }
                     .background(Color(.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .padding(.horizontal)
                 }
 
-                // Manual fallback
+                // Trusted connections — saved, named IPs the user can pick with one tap.
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Manual Fallback IP")
+                    Text("Trusted Connections")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal)
                         .padding(.bottom, 6)
 
                     VStack(spacing: 0) {
+                        if bridge.trustedHosts.isEmpty {
+                            Text("No saved connections yet. Add one below for a one-tap reconnect instead of retyping an IP.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            ForEach(Array(bridge.trustedHosts.enumerated()), id: \.element.id) { index, entry in
+                                if index > 0 { Divider() }
+                                HStack(spacing: 12) {
+                                    Button {
+                                        bridge.selectTrustedHost(entry)
+                                        dismiss()
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: bridge.host == entry.ipAddress ? "checkmark.circle.fill" : "circle")
+                                                .foregroundStyle(bridge.host == entry.ipAddress ? .green : .secondary)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(entry.name)
+                                                    .foregroundStyle(.primary)
+                                                Text(entry.ipAddress)
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            Spacer()
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Button {
+                                        if let idx = bridge.trustedHosts.firstIndex(where: { $0.id == entry.id }) {
+                                            bridge.removeTrustedHost(at: IndexSet(integer: idx))
+                                        }
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .foregroundStyle(.red.opacity(0.7))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding()
+                            }
+                        }
+                    }
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                }
+
+                // Add a connection — saves as trusted, or just reconnects once.
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Add a Connection")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 6)
+
+                    VStack(spacing: 0) {
+                        TextField("Name (e.g. Church Tracks Computer)", text: $newHostName)
+                            .autocorrectionDisabled()
+                            .padding()
+
+                        Divider()
+
                         TextField("Mac IP Address (e.g. 10.0.0.101)", text: $hostInput)
                             .keyboardType(.decimalPad)
                             .autocorrectionDisabled()
@@ -100,7 +178,23 @@ struct SettingsView: View {
 
                         Divider()
 
-                        Text("Used only if Bonjour discovery times out (3 s). Find the Mac's IP in System Settings → Network.")
+                        Button {
+                            bridge.addTrustedHost(name: newHostName, ipAddress: hostInput)
+                            newHostName = ""
+                        } label: {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Save as Trusted Connection")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                        }
+                        .disabled(hostInput.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                        Divider()
+
+                        Text("A saved IP is only used as a fallback if Bonjour discovery times out (3 s). Find the Mac's IP in System Settings → Network.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .padding()
@@ -148,9 +242,62 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal)
 
-                Spacer()
+                // Help & Setup
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Help & Setup")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 6)
+
+                    VStack(spacing: 0) {
+                        Button {
+                            showingHelp = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "questionmark.circle")
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 24)
+                                Text("Setup Guide")
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(.tertiary)
+                                    .font(.caption)
+                            }
+                            .foregroundStyle(.primary)
+                            .padding()
+                        }
+
+                        Divider()
+
+                        if let url = URL(string: "https://github.com/flatbil/AbletonTracksApp/wiki") {
+                            Link(destination: url) {
+                                HStack {
+                                    Image(systemName: "book")
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 24)
+                                    Text("Full Documentation")
+                                    Spacer()
+                                    Image(systemName: "arrow.up.right")
+                                        .foregroundStyle(.tertiary)
+                                        .font(.caption)
+                                }
+                                .foregroundStyle(.primary)
+                                .padding()
+                            }
+                        }
+                    }
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                }
+                .sheet(isPresented: $showingHelp) {
+                    OnboardingView { showingHelp = false }
+                }
+
             }
             .padding(.top)
+            } // ScrollView
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

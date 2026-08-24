@@ -44,9 +44,11 @@ struct TrackMixerView: View {
                             ))
                             .labelsHidden()
                             .tint(.green)
+                            .disabled(!bridge.isPrimary)
                         }
                         .contentShape(Rectangle())
                         .onTapGesture { bridge.toggleTrackMute(trackIndex: track.id) }
+                        .opacity(bridge.isPrimary ? 1.0 : 0.6)
                     }
                 }
             }

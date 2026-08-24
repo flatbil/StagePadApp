@@ -4,6 +4,8 @@ import SwiftUI
 struct StagePadApp: App {
     @StateObject private var bridge = BridgeService()
     @State private var showLaunch = true
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    @State private var showOnboarding = false
 
     var body: some Scene {
         WindowGroup {
@@ -39,6 +41,23 @@ struct StagePadApp: App {
             .onChange(of: bridge.isDemoMode) { _, demo in
                 if demo && showLaunch {
                     withAnimation(.easeInOut(duration: 0.5)) { showLaunch = false }
+                }
+            }
+            .onAppear {
+                // Screenshot automation hook — never present outside `simctl launch --args`.
+                if ProcessInfo.processInfo.arguments.contains("-UITestDemoMode") {
+                    hasSeenOnboarding = true
+                    bridge.enterDemoMode()
+                    bridge.play()
+                    showLaunch = false
+                    return
+                }
+                if !hasSeenOnboarding { showOnboarding = true }
+            }
+            .fullScreenCover(isPresented: $showOnboarding) {
+                OnboardingView {
+                    hasSeenOnboarding = true
+                    showOnboarding = false
                 }
             }
         }

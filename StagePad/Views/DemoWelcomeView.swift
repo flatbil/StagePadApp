@@ -19,7 +19,7 @@ struct DemoWelcomeView: View {
         TourStep(
             icon: "list.bullet.rectangle",
             title: "Song Selector",
-            description: "Tap any song to select it and see its sections below. Drag songs to reorder your setlist for the night. StagePad remembers your order between sessions."
+            description: "Tap any song to select it and see its sections below. Drag songs to reorder your setlist for the night. MD Buddy remembers your order between sessions."
         ),
         TourStep(
             icon: "square.grid.2x2.fill",
@@ -77,21 +77,21 @@ struct DemoWelcomeView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("What is the Bridge app?", systemImage: "desktopcomputer")
                         .font(.headline)
-                    Text("StagePad is a live performance controller for **Ableton Live**. The StagePad Bridge is a companion Mac app that runs alongside Ableton and links the two over your local network — via Wi-Fi or USB. No IP address setup required.")
+                    Text("MD Buddy is a live performance controller for **Ableton Live**. The MD Buddy Bridge is a companion Mac app that runs alongside Ableton and links the two over your local network — via Wi-Fi or USB. No IP address setup required.")
                         .foregroundStyle(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Right now", systemImage: "eye")
                         .font(.headline)
-                    Text("You're exploring a demo with sample songs so you can see what StagePad looks and feels like. Swipe through the tour on the next pages to learn what each part of the interface does.")
+                    Text("You're exploring a demo with sample songs so you can see what MD Buddy looks and feels like. Swipe through the tour on the next pages to learn what each part of the interface does.")
                         .foregroundStyle(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Going live", systemImage: "bolt.fill")
                         .font(.headline)
-                    Text("Install the StagePad Bridge on your Mac, open Ableton with a session, and StagePad will connect automatically the next time you launch.")
+                    Text("Install the MD Buddy Bridge on your Mac, open Ableton with a session, and MD Buddy will connect automatically the next time you launch.")
                         .foregroundStyle(.secondary)
                 }
             }

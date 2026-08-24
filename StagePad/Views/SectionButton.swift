@@ -56,6 +56,8 @@ struct SectionButton: View {
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.6)
                         .padding(10)
                         .shadow(color: .black.opacity(0.6), radius: 2, x: 0, y: 1)
                         .frame(width: geo.size.width, height: geo.size.height)

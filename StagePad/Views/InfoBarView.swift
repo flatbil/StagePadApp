@@ -8,6 +8,7 @@ struct InfoBarView: View {
     let measure: Int
     let statusColor: Color
     var isDemo: Bool = false
+    var isObserver: Bool = false
     let onSettingsTap: () -> Void
     let onTracksTap: () -> Void
     var onDemoTap: (() -> Void)? = nil
@@ -23,6 +24,9 @@ struct InfoBarView: View {
             playingIndicator
             if isDemo {
                 demoBadge
+            }
+            if isObserver {
+                observerBadge
             }
             tracksButton
             divider
@@ -62,6 +66,24 @@ struct InfoBarView: View {
             }
         }
         .buttonStyle(.plain)
+        .padding(.leading, 10)
+    }
+
+    // Read-only indicator — another device holds primary control. Not tappable;
+    // there's no "take control" action, matching the "first to connect is
+    // primary" model documented in the wiki.
+    private var observerBadge: some View {
+        VStack(spacing: 1) {
+            Text("OBSERVER")
+                .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.cyan))
+            Text("view only")
+                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.cyan.opacity(0.85))
+        }
         .padding(.leading, 10)
     }
 
