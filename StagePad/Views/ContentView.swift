@@ -105,7 +105,7 @@ struct ContentView: View {
             // Rounded to match the device's own screen bevel instead of cutting
             // across it with sharp corners.
             if isInCommand {
-                RoundedRectangle(cornerRadius: 55, style: .continuous)
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .strokeBorder(Color.green, lineWidth: 3)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
