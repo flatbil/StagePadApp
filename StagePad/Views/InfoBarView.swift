@@ -120,10 +120,10 @@ struct InfoBarView: View {
             .frame(width: 22)
 
             Text(isPlaying ? "PLAYING" : "STOPPED")
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundStyle(isPlaying ? .green : .white.opacity(0.35))
         }
-        .frame(width: 120, alignment: .leading)
+        .frame(width: 90, alignment: .leading)
         .onChange(of: isPlaying) { _, playing in pingingPlaying = playing }
         .onAppear { pingingPlaying = isPlaying }
     }
@@ -134,16 +134,16 @@ struct InfoBarView: View {
 
     private var tracksButton: some View {
         Button(action: onTracksTap) {
-            VStack(spacing: 2) {
+            HStack(spacing: 6) {
                 Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                 Text("TRACKS")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
             }
             .foregroundStyle(.white.opacity(0.6))
-            // Apple's 44pt minimum tap target — width was already there, height
-            // wasn't (icon + label only summed to ~27pt tall).
-            .frame(width: 58, height: 44)
+            // Wider so the label reads clearly at a glance, not cramped
+            // under a small icon. Height keeps Apple's 44pt tap-target minimum.
+            .frame(width: 88, height: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
