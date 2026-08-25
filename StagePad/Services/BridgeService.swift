@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 enum ConnectionState: Equatable {
     case disconnected, connecting, connected, rejected
@@ -16,6 +17,14 @@ struct TrustedHost: Identifiable, Codable, Equatable {
         self.name = name
         self.ipAddress = ipAddress
     }
+}
+
+/// One entry in the "who's connected" list the bridge broadcasts to every device.
+struct RosterDevice: Identifiable, Equatable {
+    var id: String { connectionID }
+    let connectionID: String
+    let name: String
+    let role: String   // "primary" | "observer"
 }
 
 // Bonjour discovery — finds the bridge on whatever interface is fastest
@@ -116,6 +125,12 @@ final class BridgeService: ObservableObject {
     /// bridge sends on connect; defaults true so demo mode and the moment
     /// before a role arrives are fully interactive.
     @Published var isPrimary: Bool = true
+    /// This device's id as assigned by the bridge on connect — used to pick
+    /// itself out of `roster` (e.g. to show "this device").
+    @Published var myConnectionID: String = ""
+    /// Every device currently connected to the bridge (primary + observers),
+    /// kept in sync via "roster" broadcasts.
+    @Published var roster: [RosterDevice] = []
     private var lastNotifiedCueCount: Int = 0
 
     // Section timing — read by TimelineView in SectionButtonWrapper at render time.
@@ -154,6 +169,26 @@ final class BridgeService: ObservableObject {
     var host: String {
         get { UserDefaults.standard.string(forKey: "bridge_host") ?? "192.168.4.29" }
         set { UserDefaults.standard.set(newValue, forKey: "bridge_host") }
+    }
+
+    /// This device's display name, shown to everyone else in the connected
+    /// roster. Defaults to the device's own name (e.g. "Sarah's iPad") since
+    /// that's usually already meaningful; editable in Settings.
+    var deviceName: String {
+        get {
+            let saved = UserDefaults.standard.string(forKey: "deviceName") ?? ""
+            return saved.isEmpty ? UIDevice.current.name : saved
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "deviceName") }
+    }
+
+    /// Update this device's name and, if connected, tell the bridge right
+    /// away so the roster updates live without needing a reconnect.
+    func updateDeviceName(_ name: String) {
+        deviceName = name
+        if connectionState == .connected {
+            send(["type": "register", "name": deviceName])
+        }
     }
 
     init() {
@@ -261,6 +296,7 @@ final class BridgeService: ObservableObject {
                 if error == nil {
                     self.connectionState = .connected
                     self.connectionDetail = "Connected to \(resolvedHost)"
+                    self.send(["type": "register", "name": self.deviceName])
                 } else {
                     self.connectionState = .disconnected
                     self.connectionDetail = "Could not reach \(resolvedHost)"
@@ -285,6 +321,8 @@ final class BridgeService: ObservableObject {
         webSocketTask = nil
         connectionState = .disconnected
         connectionDetail = ""
+        roster = []
+        myConnectionID = ""
         interpolationTempo = 0
         prevAnchorPosition = -1
     }
@@ -295,6 +333,15 @@ final class BridgeService: ObservableObject {
     func enterDemoMode() {
         isDemoMode = true
         isPrimary = true
+        // Fake roster so the "whole team connected" story is visible without a
+        // real bridge or other devices — this device shown as primary/in
+        // control, plus a couple of stand-in band members as observers.
+        myConnectionID = "demo-self"
+        roster = [
+            RosterDevice(connectionID: "demo-self", name: deviceName, role: "primary"),
+            RosterDevice(connectionID: "demo-1", name: "Sarah's iPad", role: "observer"),
+            RosterDevice(connectionID: "demo-2", name: "Bob's iPhone", role: "observer"),
+        ]
         songs = Song.previewSongs
         tracks = BridgeTrack.previewTracks
         setlistOrder = Array(songs.indices)
@@ -320,6 +367,8 @@ final class BridgeService: ObservableObject {
         isDemoMode = false
         disconnect()               // cancels tasks/socket, sets .disconnected
         isPlaying = false
+        roster = []
+        myConnectionID = ""
         songs = []
         setlistOrder = []
         currentSongIndex = -1
@@ -579,9 +628,20 @@ final class BridgeService: ObservableObject {
             return
         }
 
+        if type == "roster", let devicesRaw = json["devices"] as? [[String: Any]] {
+            roster = devicesRaw.compactMap { d in
+                guard let cid = d["connection_id"] as? String,
+                      let name = d["name"] as? String,
+                      let role = d["role"] as? String else { return nil }
+                return RosterDevice(connectionID: cid, name: name, role: role)
+            }
+            return
+        }
+
         // 1. Song list (state message only)
         if type == "state", let songsData = try? JSONSerialization.data(withJSONObject: json["songs"] ?? []) {
             if let role = json["role"] as? String { isPrimary = (role == "primary") }
+            if let cid = json["connection_id"] as? String { myConnectionID = cid }
             let newSongs = (try? JSONDecoder().decode([Song].self, from: songsData)) ?? []
             songs = newSongs
             // Reset setlist order when song count changes (new set loaded).

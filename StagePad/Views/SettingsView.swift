@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var logoPickerItem: PhotosPickerItem?
     @State private var hostInput: String = ""
     @State private var newHostName: String = ""
+    @State private var deviceNameInput: String = ""
     @State private var showingHelp = false
 
     var body: some View {
@@ -92,6 +93,78 @@ struct SettingsView: View {
                                     .foregroundStyle(.primary)
                             }
                             .padding()
+                        }
+                    }
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                }
+
+                // This device's name — shown to everyone else in Connected Devices below.
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("This Device's Name")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 6)
+
+                    VStack(spacing: 0) {
+                        TextField("Name shown to the rest of the team", text: $deviceNameInput)
+                            .autocorrectionDisabled()
+                            .padding()
+
+                        Divider()
+
+                        Button {
+                            bridge.updateDeviceName(deviceNameInput)
+                        } label: {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Update Name")
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                        }
+                        .disabled(deviceNameInput.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                }
+
+                // Connected devices — everyone currently on the bridge, at a glance.
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Connected Devices")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 6)
+
+                    VStack(spacing: 0) {
+                        if bridge.roster.isEmpty {
+                            Text("No devices connected yet.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            ForEach(Array(bridge.roster.enumerated()), id: \.element.connectionID) { index, device in
+                                if index > 0 { Divider() }
+                                HStack(spacing: 12) {
+                                    Image(systemName: device.role == "primary" ? "star.circle.fill" : "eye.circle")
+                                        .foregroundStyle(device.role == "primary" ? .green : .cyan)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(device.name + (device.connectionID == bridge.myConnectionID ? " (this device)" : ""))
+                                            .foregroundStyle(.primary)
+                                        Text(device.role == "primary" ? "Primary — in control" : "Observer — view only")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding()
+                            }
                         }
                     }
                     .background(Color(.secondarySystemBackground))
@@ -312,7 +385,10 @@ struct SettingsView: View {
                     Button("Cancel") { dismiss() }
                 }
             }
-            .onAppear { hostInput = bridge.host }
+            .onAppear {
+                hostInput = bridge.host
+                deviceNameInput = bridge.deviceName
+            }
         }
     }
 }

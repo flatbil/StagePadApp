@@ -39,6 +39,13 @@ struct ContentView: View {
         }
     }
 
+    /// This device currently holds control (primary + actually connected, or
+    /// demo mode) — shown with a border so a room full of identical-looking
+    /// iPads makes it obvious at a glance who's driving.
+    private var isInCommand: Bool {
+        (bridge.connectionState == .connected && bridge.isPrimary) || bridge.isDemoMode
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -91,6 +98,17 @@ struct ContentView: View {
                     onPlay: { bridge.play() },
                     onStop: { bridge.stop() }
                 )
+            }
+        }
+        .overlay {
+            // Thin so it doesn't displace the UI — just a "you're in command" cue.
+            // Rounded to match the device's own screen bevel instead of cutting
+            // across it with sharp corners.
+            if isInCommand {
+                RoundedRectangle(cornerRadius: 55, style: .continuous)
+                    .strokeBorder(Color.green, lineWidth: 3)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
             }
         }
         .sheet(isPresented: $showingSettings) {
