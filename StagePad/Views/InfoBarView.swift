@@ -141,7 +141,10 @@ struct InfoBarView: View {
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
             }
             .foregroundStyle(.white.opacity(0.6))
-            .frame(width: 58)
+            // Apple's 44pt minimum tap target — width was already there, height
+            // wasn't (icon + label only summed to ~27pt tall).
+            .frame(width: 58, height: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -153,6 +156,9 @@ struct InfoBarView: View {
                 Image(systemName: "gear")
                     .font(.system(size: 18))
                     .foregroundStyle(.white.opacity(0.5))
+                    // Apple's 44pt minimum tap target — the icon glyph alone was ~18pt.
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
         }
         .frame(width: 70, alignment: .trailing)
