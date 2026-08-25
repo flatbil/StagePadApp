@@ -99,13 +99,14 @@ struct ContentView: View {
                     onStop: { bridge.stop() }
                 )
             }
+            // Always-present margin (not conditional on isInCommand) so content
+            // doesn't shift/resize when control changes hands — the border below
+            // lives in this gap instead of drawing on top of the content.
+            .padding(10)
         }
         .overlay {
-            // Thin so it doesn't displace the UI — just a "you're in command" cue.
-            // Rounded to match the device's own screen bevel instead of cutting
-            // across it with sharp corners.
             if isInCommand {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .strokeBorder(Color.green, lineWidth: 3)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
