@@ -43,7 +43,8 @@ struct ContentView: View {
     /// demo mode) — shown with a border so a room full of identical-looking
     /// iPads makes it obvious at a glance who's driving.
     private var isInCommand: Bool {
-        (bridge.connectionState == .connected && bridge.isPrimary) || bridge.isDemoMode
+        if ProcessInfo.processInfo.arguments.contains("-UITestForceObserver") { return false }
+        return (bridge.connectionState == .connected && bridge.isPrimary) || bridge.isDemoMode
     }
 
     var body: some View {
@@ -58,7 +59,8 @@ struct ContentView: View {
                     measure: currentMeasure,
                     statusColor: statusColor,
                     isDemo: bridge.isDemoMode && !ProcessInfo.processInfo.arguments.contains("-UITestDemoMode"),
-                    isObserver: !bridge.isPrimary && bridge.connectionState == .connected,
+                    isObserver: (!bridge.isPrimary && bridge.connectionState == .connected)
+                        || ProcessInfo.processInfo.arguments.contains("-UITestForceObserver"),
                     onSettingsTap: { showingSettings = true },
                     onTracksTap: { showingTracks = true },
                     onDemoTap: onExitToMenu

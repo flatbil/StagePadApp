@@ -50,6 +50,19 @@ struct StagePadApp: App {
                     bridge.enterDemoMode()
                     bridge.play()
                     showLaunch = false
+                    // Screenshot automation hook — shows the Observer experience
+                    // (badge, dimmed non-interactive grid) using the same demo
+                    // content, without needing a second physical device synced
+                    // to a live bridge.
+                    if ProcessInfo.processInfo.arguments.contains("-UITestForceObserver") {
+                        bridge.isPrimary = false
+                        bridge.myConnectionID = "demo-self"
+                        bridge.roster = [
+                            RosterDevice(connectionID: "demo-md", name: "MD's iPad", role: "primary"),
+                            RosterDevice(connectionID: "demo-self", name: bridge.deviceName, role: "observer"),
+                            RosterDevice(connectionID: "demo-2", name: "Bob's iPhone", role: "observer"),
+                        ]
+                    }
                     return
                 }
                 if !hasSeenOnboarding { showOnboarding = true }

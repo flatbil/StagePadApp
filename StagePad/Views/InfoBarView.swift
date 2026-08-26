@@ -19,6 +19,13 @@ struct InfoBarView: View {
     @State private var sectionScale: CGFloat = 1.0
     @State private var sectionOffset: CGFloat = 0.0
 
+    // iPhone-width layout: the iPad-tuned fixed-width cells (indicator, tracks
+    // label, BPM, BAR) left zero room for SONG/SECTION on a ~440pt-wide iPhone
+    // — they rendered completely blank. Compact width drops BAR, shrinks the
+    // rest, and goes icon-only on TRACKS to give SONG/SECTION real estate back.
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    private var isCompact: Bool { horizontalSizeClass == .compact }
+
     var body: some View {
         HStack(spacing: 0) {
             playingIndicator
@@ -35,14 +42,16 @@ struct InfoBarView: View {
             bouncingCell(label: "SECTION", value: currentSectionName, scale: sectionScale, offset: sectionOffset)
             divider
             infoCell(label: "BPM", value: tempo > 0 ? String(format: "%.1f", tempo) : "—")
-                .frame(width: 90)
-            divider
-            infoCell(label: "BAR", value: "\(measure)")
-                .frame(width: 90)
+                .frame(width: isCompact ? 60 : 90)
+            if !isCompact {
+                divider
+                infoCell(label: "BAR", value: "\(measure)")
+                    .frame(width: 90)
+            }
             divider
             controls
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, isCompact ? 10 : 16)
         .frame(height: 70)
         .background(Color.white.opacity(0.05))
         .onChange(of: currentSongName) { _, _ in bounce(scale: $songScale, offset: $songOffset) }
@@ -55,18 +64,22 @@ struct InfoBarView: View {
         Button { onDemoTap?() } label: {
             VStack(spacing: 1) {
                 Text("DEMO")
-                    .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                    .font(.system(size: isCompact ? 10 : 12, weight: .heavy, design: .monospaced))
                     .foregroundStyle(.black)
-                    .padding(.horizontal, 9)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.horizontal, isCompact ? 6 : 9)
                     .padding(.vertical, 3)
                     .background(Capsule().fill(.orange))
-                Text("tap to exit")
-                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.orange.opacity(0.85))
+                if !isCompact {
+                    Text("tap to exit")
+                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.orange.opacity(0.85))
+                }
             }
         }
         .buttonStyle(.plain)
-        .padding(.leading, 10)
+        .padding(.leading, isCompact ? 6 : 10)
     }
 
     // Read-only indicator — another device holds primary control. Not tappable;
@@ -75,16 +88,20 @@ struct InfoBarView: View {
     private var observerBadge: some View {
         VStack(spacing: 1) {
             Text("OBSERVER")
-                .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                .font(.system(size: isCompact ? 10 : 12, weight: .heavy, design: .monospaced))
                 .foregroundStyle(.black)
-                .padding(.horizontal, 9)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, isCompact ? 6 : 9)
                 .padding(.vertical, 3)
                 .background(Capsule().fill(Color.cyan))
-            Text("view only")
-                .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.cyan.opacity(0.85))
+            if !isCompact {
+                Text("view only")
+                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.cyan.opacity(0.85))
+            }
         }
-        .padding(.leading, 10)
+        .padding(.leading, isCompact ? 6 : 10)
     }
 
     private func bounce(scale: Binding<CGFloat>, offset: Binding<CGFloat>) {
@@ -122,8 +139,10 @@ struct InfoBarView: View {
             Text(isPlaying ? "PLAYING" : "STOPPED")
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundStyle(isPlaying ? .green : .white.opacity(0.35))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
-        .frame(width: 90, alignment: .leading)
+        .frame(width: isCompact ? 66 : 90, alignment: .leading)
         .onChange(of: isPlaying) { _, playing in pingingPlaying = playing }
         .onAppear { pingingPlaying = isPlaying }
     }
@@ -137,13 +156,18 @@ struct InfoBarView: View {
             HStack(spacing: 6) {
                 Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 15, weight: .semibold))
-                Text("TRACKS")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                // Label dropped on compact width — icon alone stays
+                // recognizable and the label was the biggest single space cost
+                // on iPhone, where it was crowding SONG/SECTION out entirely.
+                if !isCompact {
+                    Text("TRACKS")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                }
             }
             .foregroundStyle(.white.opacity(0.6))
-            // Wider so the label reads clearly at a glance, not cramped
+            // Wider on iPad so the label reads clearly at a glance, not cramped
             // under a small icon. Height keeps Apple's 44pt tap-target minimum.
-            .frame(width: 88, height: 44)
+            .frame(width: isCompact ? 44 : 88, height: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -170,9 +194,10 @@ struct InfoBarView: View {
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.35))
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(.system(size: isCompact ? 15 : 18, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .scaleEffect(scale)
                 .offset(y: offset)
         }
@@ -185,9 +210,10 @@ struct InfoBarView: View {
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.35))
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(.system(size: isCompact ? 15 : 18, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .lineLimit(1)
+                .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
     }
