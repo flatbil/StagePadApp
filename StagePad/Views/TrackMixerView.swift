@@ -46,8 +46,14 @@ struct TrackMixerView: View {
                             .tint(.green)
                             .disabled(!bridge.isPrimary)
                         }
-                        .contentShape(Rectangle())
-                        .onTapGesture { bridge.toggleTrackMute(trackIndex: track.id) }
+                        // The Toggle above is the single source of truth for this
+                        // action. A row-wide .onTapGesture calling the same
+                        // function used to sit here too — tapping the switch could
+                        // fire both handlers for one touch, toggling it and then
+                        // immediately toggling it back (sending two contradictory
+                        // mute commands), which read as "it flips, then flips
+                        // back." Removed rather than debounced, since one row =
+                        // one action is the less surprising interaction anyway.
                         .opacity(bridge.isPrimary ? 1.0 : 0.6)
                     }
                 }
