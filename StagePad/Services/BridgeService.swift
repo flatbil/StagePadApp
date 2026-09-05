@@ -101,6 +101,13 @@ final class BridgeService: ObservableObject {
     @Published var currentSectionIndex: Int = -1
     @Published var position: Double = 0          // beats from set start — server-side, for measure display
     @Published var isPlaying: Bool = false
+    /// False when the bridge has lost contact with Ableton itself (it quit,
+    /// crashed, or the OSC link otherwise went silent) even though the
+    /// WebSocket to the bridge is still up. Distinct from connectionState,
+    /// which only tracks the iPad-to-bridge link. See BridgeService.swift's
+    /// scheduleAutoAdvance() guard — this stops local dead-reckoning from
+    /// marching through the setlist against a transport that no longer exists.
+    @Published var abletonConnected: Bool = true
     @Published var connectionState: ConnectionState = .disconnected
     /// Human-readable description of what the connection process is doing right
     /// now (e.g. "Searching via Bonjour…", "Trying saved IP 10.0.0.101…",
@@ -546,7 +553,11 @@ final class BridgeService: ObservableObject {
         autoAdvanceTask?.cancel()
         // In demo mode the fake-bridge ticker drives section changes directly, so
         // the client-side prediction is unnecessary and would double-advance.
-        guard !isDemoMode, isPlaying, tempo > 0 else { return }
+        // abletonConnected guards against marching through the whole setlist on
+        // a fake clock when Ableton has gone quiet but isPlaying hasn't been
+        // corrected yet (belt-and-suspenders — the bridge also forces
+        // isPlaying=false on disconnect, but this doesn't depend on message order).
+        guard !isDemoMode, isPlaying, tempo > 0, abletonConnected else { return }
 
         // Use measured tempo when available — it's derived from actual beat timing
         // and adapts to per-song BPM changes faster than the reported value.
@@ -688,6 +699,7 @@ final class BridgeService: ObservableObject {
             isPlaying: json["is_playing"] as? Bool,
             songIndex: json["current_song_index"] as? Int,
             sectionIndex: json["current_section_index"] as? Int,
+            abletonConnected: json["ableton_connected"] as? Bool,
             forceActivate: type == "state"
         )
     }
@@ -711,11 +723,23 @@ final class BridgeService: ObservableObject {
     /// needed after a state message refreshes the song list (cue positions may differ).
     private func applyTransport(tempo t: Double?, timeSigNum: Int?, position pos: Double?,
                                 isPlaying playing: Bool?, songIndex: Int?, sectionIndex: Int?,
+                                abletonConnected connected: Bool? = nil,
                                 forceActivate: Bool = false) {
         // Tempo / time signature (needed before activateSection).
         let prevTempo = tempo
         if let t { tempo = t }
         if let timeSigNum { timeSignatureNumerator = timeSigNum }
+        // Ableton liveness — checked in scheduleAutoAdvance() so a lost link
+        // freezes local dead-reckoning instead of marching through the setlist
+        // against a transport that isn't actually running anymore.
+        if let connected {
+            let wasConnected = abletonConnected
+            abletonConnected = connected
+            if !connected && wasConnected {
+                autoAdvanceTask?.cancel()
+                autoAdvanceTask = nil
+            }
+        }
 
         // Position — with beat-quantized jump suppression.
         if let pos {

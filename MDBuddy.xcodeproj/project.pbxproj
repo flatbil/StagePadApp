@@ -7,17 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		003034AC8F279A3012463955 /* DemoWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC31D4EE743113A2614F9E13 /* DemoWelcomeView.swift */; };
 		064D4FE7F178064DBEF163B3 /* SectionButtonWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEF956B8DED692F5BFC08F14 /* SectionButtonWrapper.swift */; };
 		16A9EA7943D60F66205F5347 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 449BDEE8127AC2459B8BA254 /* Assets.xcassets */; };
 		43E229B4CBA86C8D2FC0B87C /* LaunchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4E615F4ED007C22F4E0875 /* LaunchScreenView.swift */; };
+		5984AE10B3D1BA34C3D61268 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 539A0C07ACBF7A088092D78E /* OnboardingView.swift */; };
 		622D86B1A7C3DFB82A60206C /* SectionGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 287DC85CAB15D68B3DC791D2 /* SectionGridView.swift */; };
 		69764C1C99E25063FD6677B9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC46DFFC426EA2BE66009397 /* SettingsView.swift */; };
 		6FED3A1826B579AC7DE5C640 /* InfoBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B99792BACB31C6A63D484EC /* InfoBarView.swift */; };
 		770ACC0955DBB9619AAEC076 /* SongSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E368157E5FC39D5C12CC2B2 /* SongSelectorView.swift */; };
 		89091D8E0352FF87FB7692A3 /* TransportBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 026080DD6E8322D9F27335A4 /* TransportBarView.swift */; };
 		A20F00C210A3A0B2DBF4CD52 /* StagePadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA51D1698B247E089B9646F2 /* StagePadApp.swift */; };
+		A8F5E5EAE69F8EA343DF12E5 /* TrackMixerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 478196C911978E05A164603C /* TrackMixerView.swift */; };
 		C4AD7B04F7E2676ED5FA56E4 /* BridgeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D424C791E25E16386F318BC /* BridgeService.swift */; };
-		003034AC8F279A3012463955 /* DemoWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC31D4EE743113A2614F9E13 /* DemoWelcomeView.swift */; };
 		D78CC0908853294EFEF182DA /* Song.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04C6F2B52FF53FBDAD436C0 /* Song.swift */; };
 		DEEE24BFB14311B46EE744A6 /* SectionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74ACA3DB81299B84C4A249EE /* SectionButton.swift */; };
 		E0F4EBCB5D4B301567028496 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDDF44F0DB1453DC2A90A645 /* ContentView.swift */; };
@@ -29,13 +31,15 @@
 		0E368157E5FC39D5C12CC2B2 /* SongSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongSelectorView.swift; sourceTree = "<group>"; };
 		287DC85CAB15D68B3DC791D2 /* SectionGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionGridView.swift; sourceTree = "<group>"; };
 		2D424C791E25E16386F318BC /* BridgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeService.swift; sourceTree = "<group>"; };
-		AC31D4EE743113A2614F9E13 /* DemoWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoWelcomeView.swift; sourceTree = "<group>"; };
 		449BDEE8127AC2459B8BA254 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		478196C911978E05A164603C /* TrackMixerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TrackMixerView.swift; sourceTree = "<group>"; };
+		539A0C07ACBF7A088092D78E /* OnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		6B99792BACB31C6A63D484EC /* InfoBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoBarView.swift; sourceTree = "<group>"; };
 		74ACA3DB81299B84C4A249EE /* SectionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionButton.swift; sourceTree = "<group>"; };
 		7E907B016769E4B5EEC9BC29 /* MDBuddy.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MDBuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5962511E281A968DFF41EEF /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewData.swift; sourceTree = "<group>"; };
 		A9D3425F3A9C2F40FD98CCCB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		AC31D4EE743113A2614F9E13 /* DemoWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoWelcomeView.swift; sourceTree = "<group>"; };
 		AE4E615F4ED007C22F4E0875 /* LaunchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
 		BA51D1698B247E089B9646F2 /* StagePadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StagePadApp.swift; sourceTree = "<group>"; };
 		BC46DFFC426EA2BE66009397 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -74,6 +78,8 @@
 				BC46DFFC426EA2BE66009397 /* SettingsView.swift */,
 				0E368157E5FC39D5C12CC2B2 /* SongSelectorView.swift */,
 				026080DD6E8322D9F27335A4 /* TransportBarView.swift */,
+				539A0C07ACBF7A088092D78E /* OnboardingView.swift */,
+				478196C911978E05A164603C /* TrackMixerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -123,8 +129,6 @@
 			dependencies = (
 			);
 			name = MDBuddy;
-			packageProductDependencies = (
-			);
 			productName = MDBuddy;
 			productReference = 7E907B016769E4B5EEC9BC29 /* MDBuddy.app */;
 			productType = "com.apple.product-type.application";
@@ -189,6 +193,8 @@
 				770ACC0955DBB9619AAEC076 /* SongSelectorView.swift in Sources */,
 				A20F00C210A3A0B2DBF4CD52 /* StagePadApp.swift in Sources */,
 				89091D8E0352FF87FB7692A3 /* TransportBarView.swift in Sources */,
+				5984AE10B3D1BA34C3D61268 /* OnboardingView.swift in Sources */,
+				A8F5E5EAE69F8EA343DF12E5 /* TrackMixerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

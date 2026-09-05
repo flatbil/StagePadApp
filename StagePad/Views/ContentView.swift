@@ -61,6 +61,11 @@ struct ContentView: View {
                     isDemo: bridge.isDemoMode && !ProcessInfo.processInfo.arguments.contains("-UITestDemoMode"),
                     isObserver: (!bridge.isPrimary && bridge.connectionState == .connected)
                         || ProcessInfo.processInfo.arguments.contains("-UITestForceObserver"),
+                    // Only meaningful once we're actually talking to the bridge —
+                    // a dead bridge connection already shows red via statusColor,
+                    // no need to also flash this and double up the "something's
+                    // wrong" signal with two different badges at once.
+                    isAbletonOffline: bridge.connectionState == .connected && !bridge.abletonConnected,
                     onSettingsTap: { showingSettings = true },
                     onTracksTap: { showingTracks = true },
                     onDemoTap: onExitToMenu

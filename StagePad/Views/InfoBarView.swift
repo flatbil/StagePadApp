@@ -9,11 +9,13 @@ struct InfoBarView: View {
     let statusColor: Color
     var isDemo: Bool = false
     var isObserver: Bool = false
+    var isAbletonOffline: Bool = false
     let onSettingsTap: () -> Void
     let onTracksTap: () -> Void
     var onDemoTap: (() -> Void)? = nil
 
     @State private var pingingPlaying = false
+    @State private var pingingAbletonOffline = false
     @State private var songScale: CGFloat = 1.0
     @State private var songOffset: CGFloat = 0.0
     @State private var sectionScale: CGFloat = 1.0
@@ -29,6 +31,9 @@ struct InfoBarView: View {
     var body: some View {
         HStack(spacing: 0) {
             playingIndicator
+            if isAbletonOffline {
+                abletonOfflineBadge
+            }
             if isDemo {
                 demoBadge
             }
@@ -80,6 +85,35 @@ struct InfoBarView: View {
         }
         .buttonStyle(.plain)
         .padding(.leading, isCompact ? 6 : 10)
+    }
+
+    // Only appears when the bridge has lost contact with Ableton itself (quit,
+    // crashed, or otherwise gone silent) while the iPad's own connection to the
+    // bridge is still fine — the one case that used to look like nothing was
+    // wrong at all. Pulses like the playing indicator so it can't be missed
+    // at a glance from across a stage. Not tappable — clears itself once the
+    // bridge sees Ableton respond again.
+    private var abletonOfflineBadge: some View {
+        VStack(spacing: 1) {
+            Text("ABLETON")
+                .font(.system(size: isCompact ? 10 : 12, weight: .heavy, design: .monospaced))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, isCompact ? 6 : 9)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.red))
+                .scaleEffect(pingingAbletonOffline ? 1.06 : 1.0)
+                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pingingAbletonOffline)
+            if !isCompact {
+                Text("not responding")
+                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.red.opacity(0.85))
+            }
+        }
+        .padding(.leading, isCompact ? 6 : 10)
+        .onAppear { pingingAbletonOffline = true }
+        .onDisappear { pingingAbletonOffline = false }
     }
 
     // Read-only indicator — another device holds primary control. Not tappable;
