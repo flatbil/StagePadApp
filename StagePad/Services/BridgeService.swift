@@ -123,6 +123,11 @@ final class BridgeService: ObservableObject {
     /// -1 means no jump pending.
     @Published var queuedSongIndex: Int = -1
     @Published var queuedSectionIndex: Int = -1
+    /// Absolute beat position the queued jump will land on (1-bar-quantized).
+    /// Drives the large count-in number shown over the queued section — on
+    /// every connected device, primary and observers alike, since it arrives
+    /// via the "jump_queued" broadcast rather than being guessed locally.
+    @Published var queuedLaunchBeat: Double? = nil
     @Published var isDemoMode: Bool = false
     @Published var tracks: [BridgeTrack] = []
     @Published var showCueWarning: Bool = false
@@ -358,6 +363,7 @@ final class BridgeService: ObservableObject {
         pendingJumpPosition = nil
         queuedSongIndex = -1
         queuedSectionIndex = -1
+        queuedLaunchBeat = nil
         demoPlayheadBeat = 0
         demoJumpLaunchBeat = nil
         // Seed the starting section through the shared transport path, then run
@@ -382,6 +388,7 @@ final class BridgeService: ObservableObject {
         currentSectionIndex = -1
         queuedSongIndex = -1
         queuedSectionIndex = -1
+        queuedLaunchBeat = nil
         position = 0
         tempo = 0
     }
@@ -429,6 +436,7 @@ final class BridgeService: ObservableObject {
                 demoPlayheadBeat = songs[queuedSongIndex].sections[queuedSectionIndex].position
             }
             demoJumpLaunchBeat = nil
+            queuedLaunchBeat = nil
             emitDemoTransport()
             return
         }
@@ -510,6 +518,7 @@ final class BridgeService: ObservableObject {
             pendingJumpPosition = nil
             queuedSongIndex = -1
             queuedSectionIndex = -1
+            queuedLaunchBeat = nil
         }
     }
 
@@ -649,6 +658,16 @@ final class BridgeService: ObservableObject {
             return
         }
 
+        // Server-computed count-in target — applied unconditionally (not
+        // gated on isPrimary) so observers see the same countdown as the
+        // device that made the jump, not just an unexplained pulsing border.
+        if type == "jump_queued" {
+            if let si = json["song_index"] as? Int { queuedSongIndex = si }
+            if let sci = json["section_index"] as? Int { queuedSectionIndex = sci }
+            queuedLaunchBeat = json["launch_beat"] as? Double
+            return
+        }
+
         // 1. Song list (state message only)
         if type == "state", let songsData = try? JSONSerialization.data(withJSONObject: json["songs"] ?? []) {
             if let role = json["role"] as? String { isPrimary = (role == "primary") }
@@ -751,6 +770,7 @@ final class BridgeService: ObservableObject {
                     pendingJumpPosition = nil
                     queuedSongIndex = -1
                     queuedSectionIndex = -1
+                    queuedLaunchBeat = nil
                     jumpTimeoutTask?.cancel()
                     jumpTimeoutTask = nil
                     position = pos
@@ -809,6 +829,7 @@ final class BridgeService: ObservableObject {
                 if currentSongIndex == queuedSongIndex && currentSectionIndex == queuedSectionIndex {
                     queuedSongIndex = -1
                     queuedSectionIndex = -1
+                    queuedLaunchBeat = nil
                     jumpTimeoutTask?.cancel()
                     jumpTimeoutTask = nil
                 }
@@ -835,29 +856,33 @@ final class BridgeService: ObservableObject {
                 sectionAnchorBeat = sectionStartBeat
                 sectionAnchorDate = Date()
                 scheduleAutoAdvance()
-            } else {
+            } else if isDemoMode {
                 queuedSongIndex = songIndex
                 queuedSectionIndex = sectionIndex
-                if isDemoMode {
-                    // Demo: pendingJumpPosition gates the fake-bridge ticker until the
-                    // simulated launch-quantization beat is reached.
-                    if songs.indices.contains(songIndex),
-                       songs[songIndex].sections.indices.contains(sectionIndex) {
-                        pendingJumpPosition = songs[songIndex].sections[sectionIndex].position
-                    }
-                    let beatsPerBar = Double(timeSignatureNumerator)
-                    demoJumpLaunchBeat = (floor(demoPlayheadBeat / beatsPerBar) + 1) * beatsPerBar
-                } else {
-                    // Live bridge: don't set pendingJumpPosition — position updates must
-                    // keep flowing so the anchor stays fresh and the bar doesn't snap.
-                    // The section changing to the queued target is confirmation enough.
-                    scheduleJumpTimeout()
+                // pendingJumpPosition gates the fake-bridge ticker until the
+                // simulated launch-quantization beat is reached.
+                if songs.indices.contains(songIndex),
+                   songs[songIndex].sections.indices.contains(sectionIndex) {
+                    pendingJumpPosition = songs[songIndex].sections[sectionIndex].position
                 }
+                let beatsPerBar = Double(timeSignatureNumerator)
+                demoJumpLaunchBeat = (floor(demoPlayheadBeat / beatsPerBar) + 1) * beatsPerBar
+                queuedLaunchBeat = demoJumpLaunchBeat
+            } else {
+                // Live bridge: don't set queuedSongIndex/queuedLaunchBeat here, and don't
+                // set pendingJumpPosition — position updates must keep flowing so the
+                // anchor stays fresh and the bar doesn't snap. The server broadcasts
+                // "jump_queued" (with the actual launch beat) back to every device,
+                // including this one, an instant later — that's what lights up the
+                // count-in, computed from the bridge's ground truth rather than a
+                // client guess, and it's how observers see it too.
+                scheduleJumpTimeout()
             }
         } else {
             // Stopped — snap the UI immediately, no quantization needed.
             queuedSongIndex = -1
             queuedSectionIndex = -1
+            queuedLaunchBeat = nil
             currentSongIndex = songIndex
             currentSectionIndex = sectionIndex
             if songs.indices.contains(songIndex),
@@ -933,6 +958,7 @@ final class BridgeService: ObservableObject {
             // Clear any pending offline jump so it doesn't keep pulsing while stopped.
             queuedSongIndex = -1
             queuedSectionIndex = -1
+            queuedLaunchBeat = nil
             pendingJumpPosition = nil
             demoJumpLaunchBeat = nil
         }
