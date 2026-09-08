@@ -130,6 +130,11 @@ final class BridgeService: ObservableObject {
     @Published var queuedLaunchBeat: Double? = nil
     @Published var isDemoMode: Bool = false
     @Published var tracks: [BridgeTrack] = []
+    /// Live per-track output level (0...1), keyed by track index — Ableton's
+    /// own post-fader/post-mute meter reading, from the bridge's ~10Hz
+    /// "meters" broadcast. A track missing from this dict just hasn't
+    /// reported yet; treat that the same as 0.
+    @Published var trackMeters: [Int: Double] = [:]
     @Published var showCueWarning: Bool = false
     @Published var cueCount: Int = 0
     /// False when this device connected as a read-only observer (another
@@ -364,6 +369,7 @@ final class BridgeService: ObservableObject {
         queuedSongIndex = -1
         queuedSectionIndex = -1
         queuedLaunchBeat = nil
+        trackMeters = [:]
         demoPlayheadBeat = 0
         demoJumpLaunchBeat = nil
         // Seed the starting section through the shared transport path, then run
@@ -389,6 +395,7 @@ final class BridgeService: ObservableObject {
         queuedSongIndex = -1
         queuedSectionIndex = -1
         queuedLaunchBeat = nil
+        trackMeters = [:]
         position = 0
         tempo = 0
     }
@@ -665,6 +672,18 @@ final class BridgeService: ObservableObject {
             if let si = json["song_index"] as? Int { queuedSongIndex = si }
             if let sci = json["section_index"] as? Int { queuedSectionIndex = sci }
             queuedLaunchBeat = json["launch_beat"] as? Double
+            return
+        }
+
+        if type == "meters", let levelsRaw = json["levels"] as? [String: Any] {
+            // Keys arrive as strings (JSON object keys always are) — the
+            // bridge sends them from a Python dict keyed by track index.
+            var levels: [Int: Double] = [:]
+            for (key, value) in levelsRaw {
+                guard let index = Int(key), let level = value as? Double else { continue }
+                levels[index] = level
+            }
+            trackMeters = levels
             return
         }
 
