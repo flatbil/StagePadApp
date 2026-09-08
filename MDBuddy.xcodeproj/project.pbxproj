@@ -20,6 +20,7 @@
 		A20F00C210A3A0B2DBF4CD52 /* StagePadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA51D1698B247E089B9646F2 /* StagePadApp.swift */; };
 		A8F5E5EAE69F8EA343DF12E5 /* TrackMixerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 478196C911978E05A164603C /* TrackMixerView.swift */; };
 		C4AD7B04F7E2676ED5FA56E4 /* BridgeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D424C791E25E16386F318BC /* BridgeService.swift */; };
+		C72103DE626330EC202D71C3 /* TempoLightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E7C01B12836BFB5B90D16C8 /* TempoLightView.swift */; };
 		D78CC0908853294EFEF182DA /* Song.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04C6F2B52FF53FBDAD436C0 /* Song.swift */; };
 		DEEE24BFB14311B46EE744A6 /* SectionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74ACA3DB81299B84C4A249EE /* SectionButton.swift */; };
 		E0F4EBCB5D4B301567028496 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDDF44F0DB1453DC2A90A645 /* ContentView.swift */; };
@@ -33,6 +34,7 @@
 		2D424C791E25E16386F318BC /* BridgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeService.swift; sourceTree = "<group>"; };
 		449BDEE8127AC2459B8BA254 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		478196C911978E05A164603C /* TrackMixerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TrackMixerView.swift; sourceTree = "<group>"; };
+		4E7C01B12836BFB5B90D16C8 /* TempoLightView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TempoLightView.swift; sourceTree = "<group>"; };
 		539A0C07ACBF7A088092D78E /* OnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		6B99792BACB31C6A63D484EC /* InfoBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoBarView.swift; sourceTree = "<group>"; };
 		74ACA3DB81299B84C4A249EE /* SectionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionButton.swift; sourceTree = "<group>"; };
@@ -80,6 +82,7 @@
 				026080DD6E8322D9F27335A4 /* TransportBarView.swift */,
 				539A0C07ACBF7A088092D78E /* OnboardingView.swift */,
 				478196C911978E05A164603C /* TrackMixerView.swift */,
+				4E7C01B12836BFB5B90D16C8 /* TempoLightView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -195,6 +198,7 @@
 				89091D8E0352FF87FB7692A3 /* TransportBarView.swift in Sources */,
 				5984AE10B3D1BA34C3D61268 /* OnboardingView.swift in Sources */,
 				A8F5E5EAE69F8EA343DF12E5 /* TrackMixerView.swift in Sources */,
+				C72103DE626330EC202D71C3 /* TempoLightView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

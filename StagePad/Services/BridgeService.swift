@@ -31,7 +31,15 @@ struct RosterDevice: Identifiable, Equatable {
 // (USB when plugged in, WiFi otherwise) without any manual IP entry.
 @MainActor
 private final class BridgeDiscovery: NSObject, @preconcurrency NetServiceBrowserDelegate, @preconcurrency NetServiceDelegate {
-    var onResolved: ((String, Int) -> Void)?
+    /// Every resolved IPv4 address for the service, not just one — the bridge
+    /// registers itself on every local interface (WiFi and, when the iPad is
+    /// USB-connected, the USB-Ethernet interface too), and NetService gives no
+    /// reliable way to tell which resolved address belongs to which interface,
+    /// or that the first one in the list is the best one. BridgeService races
+    /// all of them and keeps whichever actually answers fastest, which is what
+    /// correctly prefers a wired connection when one exists — not this class's
+    /// job to guess it from address order.
+    var onResolved: (([String], Int) -> Void)?
 
     private let browser = NetServiceBrowser()
     private var pending: NetService?
@@ -58,9 +66,11 @@ private final class BridgeDiscovery: NSObject, @preconcurrency NetServiceBrowser
     }
 
     func netServiceDidResolveAddress(_ sender: NetService) {
-        // Prefer a raw IPv4 address from the resolved addresses — avoids mDNS
-        // hostname formatting issues (trailing dots, special characters) that
-        // break URL construction.
+        // Collect every IPv4 address — avoids mDNS hostname formatting issues
+        // (trailing dots, special characters) that break URL construction,
+        // and, unlike returning just the first match, actually gives
+        // BridgeService something to race across every available path.
+        var ips: [String] = []
         if let addresses = sender.addresses {
             for data in addresses {
                 var storage = sockaddr_storage()
@@ -73,16 +83,19 @@ private final class BridgeDiscovery: NSObject, @preconcurrency NetServiceBrowser
                     inet_ntop(AF_INET, &addr.sin_addr, &buf, socklen_t(INET_ADDRSTRLEN))
                     let ip = String(cString: buf)
                     if !ip.isEmpty && ip != "0.0.0.0" {
-                        onResolved?(ip, sender.port)
-                        return
+                        ips.append(ip)
                     }
                 }
             }
         }
-        // Fallback to hostname if no IPv4 address found
+        if !ips.isEmpty {
+            onResolved?(ips, sender.port)
+            return
+        }
+        // Fallback to hostname if no IPv4 address found at all
         guard var host = sender.hostName else { return }
         if host.hasSuffix(".") { host = String(host.dropLast()) }
-        onResolved?(host, sender.port)
+        onResolved?([host], sender.port)
     }
 
     func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
@@ -263,14 +276,21 @@ final class BridgeService: ObservableObject {
         connectionState = .connecting
         connectionDetail = "Searching for bridge via Bonjour…"
 
-        // Try Bonjour first — resolves to USB interface when iPad is plugged in,
-        // WiFi otherwise. Falls back to manual host after 3 seconds.
+        // Try Bonjour first. The bridge advertises itself on every local
+        // interface — WiFi, and the USB-Ethernet interface when the iPad is
+        // cabled in — so more than one candidate address can come back;
+        // raceOpenSockets keeps whichever one actually answers fastest,
+        // which is what correctly prefers the wired path when it's genuinely
+        // faster rather than trusting address order. Falls back to manual
+        // host after 3 seconds if nothing answers at all.
         discovery.stop()
-        discovery.onResolved = { [weak self] resolvedHost, _ in
+        discovery.onResolved = { [weak self] resolvedHosts, _ in
             guard let self else { return }
             self.discovery.stop()
-            self.connectionDetail = "Found via Bonjour — connecting to \(resolvedHost)…"
-            self.openSocket(to: resolvedHost)
+            self.connectionDetail = resolvedHosts.count > 1
+                ? "Found \(resolvedHosts.count) paths via Bonjour — connecting…"
+                : "Found via Bonjour — connecting to \(resolvedHosts[0])…"
+            self.raceOpenSockets(to: resolvedHosts)
         }
         discovery.start()
 
@@ -284,6 +304,69 @@ final class BridgeService: ObservableObject {
                 connectionDetail = "Bonjour timed out — trying saved IP \(host)…"
                 openSocket(to: host)
             }
+        }
+    }
+
+    /// True once some candidate from the current raceOpenSockets(to:) call has
+    /// already won — guards against two pings both succeeding in quick
+    /// succession and racing each other to set webSocketTask.
+    private var raceWinnerClaimed = false
+
+    /// Opens a WebSocket to every candidate address in parallel and keeps
+    /// whichever one's ping succeeds first, cancelling the rest. This is what
+    /// actually makes a wired USB connection win when it's available — it's
+    /// simply the fastest responder, not something guessed from which
+    /// address Bonjour happened to list first.
+    private func raceOpenSockets(to hosts: [String]) {
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        receiveGeneration += 1
+        let generation = receiveGeneration
+        raceWinnerClaimed = false
+
+        var candidates: [(host: String, task: URLSessionWebSocketTask)] = []
+        for candidateHost in hosts {
+            guard let socketURL = url(for: candidateHost) else { continue }
+            let task = session.webSocketTask(with: socketURL)
+            candidates.append((candidateHost, task))
+        }
+
+        guard !candidates.isEmpty else {
+            connectionState = .disconnected
+            connectionDetail = "No usable address from Bonjour"
+            scheduleReconnect()
+            return
+        }
+
+        for (candidateHost, task) in candidates {
+            task.resume()
+            task.sendPing { [weak self] error in
+                Task { @MainActor [weak self] in
+                    guard let self, self.receiveGeneration == generation else { return }
+                    guard error == nil else { return }   // this candidate lost or failed — just drop it
+                    guard !self.raceWinnerClaimed else { return }   // another candidate already won
+                    self.raceWinnerClaimed = true
+                    for other in candidates where other.host != candidateHost {
+                        other.task.cancel(with: .goingAway, reason: nil)
+                    }
+                    self.activeHost = candidateHost
+                    self.webSocketTask = task
+                    self.connectionState = .connected
+                    self.connectionDetail = "Connected to \(candidateHost)"
+                    self.send(["type": "register", "name": self.deviceName])
+                    self.receive(generation: generation)
+                }
+            }
+        }
+
+        // None of the candidates answered in time — fall back to the manual host.
+        reconnectTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            guard self.receiveGeneration == generation, !self.raceWinnerClaimed else { return }
+            for (_, task) in candidates { task.cancel() }
+            connectionDetail = "Bonjour candidates unreachable — trying saved IP \(host)…"
+            openSocket(to: host)
         }
     }
 
