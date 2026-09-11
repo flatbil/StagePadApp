@@ -65,6 +65,54 @@ struct SettingsView: View {
                     }
                 }
 
+                // Song colors — custom background tint per song, so the whole
+                // screen reads which song you're on at a glance from across a
+                // stage, not just the small pill in the selector.
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Song Colors")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 6)
+
+                    VStack(spacing: 0) {
+                        if bridge.songs.isEmpty {
+                            Text("Connect to Ableton to see songs here.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            ForEach(Array(bridge.songs.enumerated()), id: \.element.id) { index, song in
+                                if index > 0 { Divider() }
+                                HStack(spacing: 12) {
+                                    Text(song.name)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    if bridge.songColors[song.name] != nil {
+                                        Button {
+                                            bridge.setSongColor(nil, forSongNamed: song.name)
+                                        } label: {
+                                            Image(systemName: "arrow.counterclockwise.circle")
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    ColorPicker("", selection: Binding(
+                                        get: { bridge.resolvedColor(for: song, index: index) },
+                                        set: { bridge.setSongColor($0, forSongNamed: song.name) }
+                                    ))
+                                    .labelsHidden()
+                                }
+                                .padding()
+                            }
+                        }
+                    }
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                }
+
                 // Connection info
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Auto-Discovery")

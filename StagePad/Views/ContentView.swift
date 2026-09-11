@@ -47,9 +47,23 @@ struct ContentView: View {
         return (bridge.connectionState == .connected && bridge.isPrimary) || bridge.isDemoMode
     }
 
+    /// Every song gets a subdued, distinct background — its custom color if
+    /// one's been picked (Settings → Song Colors), else the same auto-cycled
+    /// palette the selector pills already use, so differentiation is on by
+    /// default rather than something you have to configure per song first.
+    private var currentSongBackgroundColor: Color? {
+        guard bridge.songs.indices.contains(bridge.currentSongIndex) else { return nil }
+        return bridge.resolvedColor(for: bridge.songs[bridge.currentSongIndex], index: bridge.currentSongIndex)
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
+            if let tint = currentSongBackgroundColor {
+                tint.opacity(0.22)
+                    .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 0.6), value: bridge.currentSongIndex)
+            }
             VStack(spacing: 0) {
                 InfoBarView(
                     isPlaying: bridge.isPlaying,
