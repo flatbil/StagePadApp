@@ -46,8 +46,11 @@ struct InfoBarView: View {
             divider
             bouncingCell(label: "SECTION", value: currentSectionName, scale: sectionScale, offset: sectionOffset)
             divider
-            infoCell(label: "BPM", value: tempo > 0 ? String(format: "%.1f", tempo) : "—")
-                .frame(width: isCompact ? 60 : 90)
+            ZStack(alignment: .topTrailing) {
+                infoCell(label: "BPM", value: tempo > 0 ? String(format: "%.1f", tempo) : "—")
+                if !isCompact { TempoLightView().padding(.top, 6).padding(.trailing, 6) }
+            }
+            .frame(width: isCompact ? 60 : 90)
             if !isCompact {
                 divider
                 infoCell(label: "BAR", value: "\(measure)")

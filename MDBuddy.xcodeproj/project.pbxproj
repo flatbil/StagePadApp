@@ -13,6 +13,7 @@
 		43E229B4CBA86C8D2FC0B87C /* LaunchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4E615F4ED007C22F4E0875 /* LaunchScreenView.swift */; };
 		5984AE10B3D1BA34C3D61268 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 539A0C07ACBF7A088092D78E /* OnboardingView.swift */; };
 		622D86B1A7C3DFB82A60206C /* SectionGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 287DC85CAB15D68B3DC791D2 /* SectionGridView.swift */; };
+		640AC1D1226FBF5B29E500AB /* TempoLightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66E76E7B9E38B2E2F39D4AE /* TempoLightView.swift */; };
 		69764C1C99E25063FD6677B9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC46DFFC426EA2BE66009397 /* SettingsView.swift */; };
 		6FED3A1826B579AC7DE5C640 /* InfoBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B99792BACB31C6A63D484EC /* InfoBarView.swift */; };
 		770ACC0955DBB9619AAEC076 /* SongSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E368157E5FC39D5C12CC2B2 /* SongSelectorView.swift */; };
@@ -46,6 +47,7 @@
 		BC46DFFC426EA2BE66009397 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		BDA9E81DBD837A13F9E7B7DA /* Color+Hex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "Color+Hex.swift"; sourceTree = "<group>"; };
 		C04C6F2B52FF53FBDAD436C0 /* Song.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Song.swift; sourceTree = "<group>"; };
+		E66E76E7B9E38B2E2F39D4AE /* TempoLightView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TempoLightView.swift; sourceTree = "<group>"; };
 		EDDF44F0DB1453DC2A90A645 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		FEF956B8DED692F5BFC08F14 /* SectionButtonWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionButtonWrapper.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -82,6 +84,7 @@
 				026080DD6E8322D9F27335A4 /* TransportBarView.swift */,
 				539A0C07ACBF7A088092D78E /* OnboardingView.swift */,
 				478196C911978E05A164603C /* TrackMixerView.swift */,
+				E66E76E7B9E38B2E2F39D4AE /* TempoLightView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -199,6 +202,7 @@
 				5984AE10B3D1BA34C3D61268 /* OnboardingView.swift in Sources */,
 				A8F5E5EAE69F8EA343DF12E5 /* TrackMixerView.swift in Sources */,
 				BB861A81D7F967CCFB7E3351 /* Color+Hex.swift in Sources */,
+				640AC1D1226FBF5B29E500AB /* TempoLightView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
