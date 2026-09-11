@@ -803,7 +803,17 @@ final class BridgeService: ObservableObject {
         // 2. Track list — present in state messages and dedicated tracks messages.
         let rawTracks = json["tracks"] as? [[String: Any]]
         if let rawTracks {
-            applyTracks(rawTracks, applyPreset: type == "state")
+            // If this same message is also changing the current song, don't
+            // reapply a preset here against the stale pre-change song index —
+            // applyTransport's own "song changed" branch below already does
+            // this correctly, against the new index, moments later. Doing it
+            // here too, against the wrong song, is exactly what caused mute
+            // state to sometimes flip back right after switching songs: two
+            // contradicting corrections (old song's preset, then the new
+            // song's) racing each other over the network.
+            let incomingSongIndex = json["current_song_index"] as? Int
+            let songIsChanging = incomingSongIndex != nil && incomingSongIndex != currentSongIndex
+            applyTracks(rawTracks, applyPreset: type == "state" && !songIsChanging)
         }
 
         // 3. Lightweight tracks-only update (mute toggle confirmed by bridge).
