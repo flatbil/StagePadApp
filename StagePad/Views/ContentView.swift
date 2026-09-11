@@ -47,9 +47,23 @@ struct ContentView: View {
         return (bridge.connectionState == .connected && bridge.isPrimary) || bridge.isDemoMode
     }
 
+    /// Only non-nil when the current song has a color the user actually
+    /// picked (Settings → Song Colors) — deliberately not the pill's
+    /// auto-cycled fallback, so a set that's never been customized still
+    /// looks exactly like it always has: plain black.
+    private var currentSongBackgroundColor: Color? {
+        guard bridge.songs.indices.contains(bridge.currentSongIndex) else { return nil }
+        return bridge.songColors[bridge.songs[bridge.currentSongIndex].name]
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
+            if let tint = currentSongBackgroundColor {
+                tint.opacity(0.22)
+                    .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 0.6), value: bridge.currentSongIndex)
+            }
             VStack(spacing: 0) {
                 InfoBarView(
                     isPlaying: bridge.isPlaying,

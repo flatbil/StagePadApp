@@ -19,6 +19,7 @@
 		89091D8E0352FF87FB7692A3 /* TransportBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 026080DD6E8322D9F27335A4 /* TransportBarView.swift */; };
 		A20F00C210A3A0B2DBF4CD52 /* StagePadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA51D1698B247E089B9646F2 /* StagePadApp.swift */; };
 		A8F5E5EAE69F8EA343DF12E5 /* TrackMixerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 478196C911978E05A164603C /* TrackMixerView.swift */; };
+		BB861A81D7F967CCFB7E3351 /* Color+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA9E81DBD837A13F9E7B7DA /* Color+Hex.swift */; };
 		C4AD7B04F7E2676ED5FA56E4 /* BridgeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D424C791E25E16386F318BC /* BridgeService.swift */; };
 		D78CC0908853294EFEF182DA /* Song.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04C6F2B52FF53FBDAD436C0 /* Song.swift */; };
 		DEEE24BFB14311B46EE744A6 /* SectionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74ACA3DB81299B84C4A249EE /* SectionButton.swift */; };
@@ -43,6 +44,7 @@
 		AE4E615F4ED007C22F4E0875 /* LaunchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
 		BA51D1698B247E089B9646F2 /* StagePadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StagePadApp.swift; sourceTree = "<group>"; };
 		BC46DFFC426EA2BE66009397 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		BDA9E81DBD837A13F9E7B7DA /* Color+Hex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "Color+Hex.swift"; sourceTree = "<group>"; };
 		C04C6F2B52FF53FBDAD436C0 /* Song.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Song.swift; sourceTree = "<group>"; };
 		EDDF44F0DB1453DC2A90A645 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		FEF956B8DED692F5BFC08F14 /* SectionButtonWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionButtonWrapper.swift; sourceTree = "<group>"; };
@@ -89,6 +91,7 @@
 			children = (
 				A5962511E281A968DFF41EEF /* PreviewData.swift */,
 				C04C6F2B52FF53FBDAD436C0 /* Song.swift */,
+				BDA9E81DBD837A13F9E7B7DA /* Color+Hex.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -195,6 +198,7 @@
 				89091D8E0352FF87FB7692A3 /* TransportBarView.swift in Sources */,
 				5984AE10B3D1BA34C3D61268 /* OnboardingView.swift in Sources */,
 				A8F5E5EAE69F8EA343DF12E5 /* TrackMixerView.swift in Sources */,
+				BB861A81D7F967CCFB7E3351 /* Color+Hex.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

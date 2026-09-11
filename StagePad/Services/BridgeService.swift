@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import SwiftUI
 
 enum ConnectionState: Equatable {
     case disconnected, connecting, connected, rejected
@@ -117,6 +118,13 @@ final class BridgeService: ObservableObject {
     @Published var trustedHosts: [TrustedHost] = [] {
         didSet { saveTrustedHosts() }
     }
+    /// User-picked background color per song, keyed by song name (stable
+    /// across reconnects and reorders, unlike index). A song absent from
+    /// this dict has no custom color — Song.songColor(for:)'s auto-cycled
+    /// palette is what's shown instead; see BridgeService.resolvedColor(for:).
+    @Published var songColors: [String: Color] = [:] {
+        didSet { saveSongColors() }
+    }
     @Published var tempo: Double = 0
     @Published var timeSignatureNumerator: Int = 4
     /// Section queued to jump to (awaiting Ableton's beat-quantized confirmation).
@@ -205,6 +213,7 @@ final class BridgeService: ObservableObject {
 
     init() {
         loadTrustedHosts()
+        loadSongColors()
     }
 
     // MARK: - Trusted hosts (saved, named bridge IPs)
@@ -231,6 +240,34 @@ final class BridgeService: ObservableObject {
 
     func removeTrustedHost(at offsets: IndexSet) {
         trustedHosts.remove(atOffsets: offsets)
+    }
+
+    // MARK: - Song colors (custom background per song)
+
+    private static let songColorsKey = "songColors"
+
+    private func loadSongColors() {
+        guard let data = UserDefaults.standard.data(forKey: Self.songColorsKey),
+              let hexMap = try? JSONDecoder().decode([String: String].self, from: data) else { return }
+        songColors = hexMap.compactMapValues { Color(hex: $0) }
+    }
+
+    private func saveSongColors() {
+        let hexMap = songColors.compactMapValues(\.hexString)
+        guard let data = try? JSONEncoder().encode(hexMap) else { return }
+        UserDefaults.standard.set(data, forKey: Self.songColorsKey)
+    }
+
+    /// nil clears back to the auto-cycled palette color for this song.
+    func setSongColor(_ color: Color?, forSongNamed name: String) {
+        songColors[name] = color
+    }
+
+    /// What to actually show for this song — its custom color if the user
+    /// picked one, else the existing auto-cycled palette color, unchanged
+    /// from before this feature existed.
+    func resolvedColor(for song: Song, index: Int) -> Color {
+        songColors[song.name] ?? Song.songColor(for: index)
     }
 
     /// Make this the active connection target and reconnect to it immediately —

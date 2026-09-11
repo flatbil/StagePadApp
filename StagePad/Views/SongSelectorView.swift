@@ -153,13 +153,15 @@ struct SongSelectorView: View {
 }
 
 private struct SongPillButton: View {
+    @EnvironmentObject var bridge: BridgeService
+
     let song:       Song
     let index:      Int
     let isSelected: Bool
     let isActive:   Bool
     var isDragging: Bool = false
 
-    private var color: Color { Song.songColor(for: index) }
+    private var color: Color { bridge.resolvedColor(for: song, index: index) }
 
     var body: some View {
         HStack(spacing: 6) {
