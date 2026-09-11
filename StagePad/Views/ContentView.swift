@@ -47,13 +47,13 @@ struct ContentView: View {
         return (bridge.connectionState == .connected && bridge.isPrimary) || bridge.isDemoMode
     }
 
-    /// Only non-nil when the current song has a color the user actually
-    /// picked (Settings → Song Colors) — deliberately not the pill's
-    /// auto-cycled fallback, so a set that's never been customized still
-    /// looks exactly like it always has: plain black.
+    /// Every song gets a subdued, distinct background — its custom color if
+    /// one's been picked (Settings → Song Colors), else the same auto-cycled
+    /// palette the selector pills already use, so differentiation is on by
+    /// default rather than something you have to configure per song first.
     private var currentSongBackgroundColor: Color? {
         guard bridge.songs.indices.contains(bridge.currentSongIndex) else { return nil }
-        return bridge.songColors[bridge.songs[bridge.currentSongIndex].name]
+        return bridge.resolvedColor(for: bridge.songs[bridge.currentSongIndex], index: bridge.currentSongIndex)
     }
 
     var body: some View {
