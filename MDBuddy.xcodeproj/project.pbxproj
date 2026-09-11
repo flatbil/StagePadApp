@@ -25,6 +25,7 @@
 		D78CC0908853294EFEF182DA /* Song.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04C6F2B52FF53FBDAD436C0 /* Song.swift */; };
 		DEEE24BFB14311B46EE744A6 /* SectionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74ACA3DB81299B84C4A249EE /* SectionButton.swift */; };
 		E0F4EBCB5D4B301567028496 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDDF44F0DB1453DC2A90A645 /* ContentView.swift */; };
+		E476F7C68EDCD6A9EB052ABC /* AlbumArtLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B3C7C60AD17FBC463374E6F /* AlbumArtLoader.swift */; };
 		FF22C5B7CD61C9565FC34A2A /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5962511E281A968DFF41EEF /* PreviewData.swift */; };
 /* End PBXBuildFile section */
 
@@ -36,6 +37,7 @@
 		449BDEE8127AC2459B8BA254 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		478196C911978E05A164603C /* TrackMixerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TrackMixerView.swift; sourceTree = "<group>"; };
 		539A0C07ACBF7A088092D78E /* OnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		6B3C7C60AD17FBC463374E6F /* AlbumArtLoader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlbumArtLoader.swift; sourceTree = "<group>"; };
 		6B99792BACB31C6A63D484EC /* InfoBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoBarView.swift; sourceTree = "<group>"; };
 		74ACA3DB81299B84C4A249EE /* SectionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionButton.swift; sourceTree = "<group>"; };
 		7E907B016769E4B5EEC9BC29 /* MDBuddy.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MDBuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -95,6 +97,7 @@
 				A5962511E281A968DFF41EEF /* PreviewData.swift */,
 				C04C6F2B52FF53FBDAD436C0 /* Song.swift */,
 				BDA9E81DBD837A13F9E7B7DA /* Color+Hex.swift */,
+				6B3C7C60AD17FBC463374E6F /* AlbumArtLoader.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -203,6 +206,7 @@
 				A8F5E5EAE69F8EA343DF12E5 /* TrackMixerView.swift in Sources */,
 				BB861A81D7F967CCFB7E3351 /* Color+Hex.swift in Sources */,
 				640AC1D1226FBF5B29E500AB /* TempoLightView.swift in Sources */,
+				E476F7C68EDCD6A9EB052ABC /* AlbumArtLoader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
