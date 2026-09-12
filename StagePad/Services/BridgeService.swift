@@ -138,6 +138,13 @@ final class BridgeService: ObservableObject {
     @Published var songColors: [String: Color] = [:] {
         didSet { saveSongColors() }
     }
+    /// Hidden bonus, not a setting: per-song album art fetched from iTunes,
+    /// keyed by song name. Disk-cached by AlbumArtLoader — never
+    /// re-fetched once found, and simply absent (not an error state) for
+    /// any song a lookup didn't match or that a fetch never reached over
+    /// a bad connection. ContentView falls back to the Song Colors tint
+    /// for any song missing from this dict.
+    @Published var albumArt: [String: UIImage] = [:]
     @Published var tempo: Double = 0
     @Published var timeSignatureNumerator: Int = 4
     /// Section queued to jump to (awaiting Ableton's beat-quantized confirmation).
@@ -286,6 +293,25 @@ final class BridgeService: ObservableObject {
     /// from before this feature existed.
     func resolvedColor(for song: Song, index: Int) -> Color {
         songColors[song.name] ?? Song.songColor(for: index)
+    }
+
+    /// Populates albumArt for whatever's in the disk cache immediately
+    /// (synchronous, no network), then kicks off a background fetch for
+    /// anything still missing. Called whenever the song list loads —
+    /// cheap to call repeatedly since already-cached songs are skipped.
+    private func loadAlbumArt(for songs: [Song]) {
+        for song in songs {
+            guard albumArt[song.name] == nil else { continue }
+            if let cached = AlbumArtLoader.cachedImage(for: song.name) {
+                albumArt[song.name] = cached
+                continue
+            }
+            let name = song.name
+            Task {
+                guard let image = await AlbumArtLoader.fetch(for: name) else { return }
+                await MainActor.run { albumArt[name] = image }
+            }
+        }
     }
 
     /// Make this the active connection target and reconnect to it immediately —
@@ -813,6 +839,7 @@ final class BridgeService: ObservableObject {
             if let cid = json["connection_id"] as? String { myConnectionID = cid }
             let newSongs = (try? JSONDecoder().decode([Song].self, from: songsData)) ?? []
             songs = newSongs
+            loadAlbumArt(for: newSongs)
             // Reset setlist order when song count changes (new set loaded).
             // Preserve a custom order if the count is unchanged (e.g., cue rename).
             if newSongs.count != setlistOrder.count {

@@ -56,10 +56,32 @@ struct ContentView: View {
         return bridge.resolvedColor(for: bridge.songs[bridge.currentSongIndex], index: bridge.currentSongIndex)
     }
 
+    /// Hidden bonus, not a setting: real album art when BridgeService has
+    /// found and cached one for the current song. nil (no network, no
+    /// iTunes match, still fetching) just means the color tint below is
+    /// what shows instead — this is a richer option layered on top of
+    /// that, never a replacement it depends on.
+    private var currentSongArt: UIImage? {
+        guard bridge.songs.indices.contains(bridge.currentSongIndex) else { return nil }
+        return bridge.albumArt[bridge.songs[bridge.currentSongIndex].name]
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            if let tint = currentSongBackgroundColor {
+            if let art = currentSongArt {
+                // Heavily blurred + darkened so it reads as ambiance behind
+                // the UI, not competing with it for attention or hurting
+                // the readability every foreground element depends on.
+                Image(uiImage: art)
+                    .resizable()
+                    .scaledToFill()
+                    .blur(radius: 45)
+                    .overlay(Color.black.opacity(0.55))
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.6), value: bridge.currentSongIndex)
+            } else if let tint = currentSongBackgroundColor {
                 tint.opacity(0.22)
                     .ignoresSafeArea()
                     .animation(.easeInOut(duration: 0.6), value: bridge.currentSongIndex)
