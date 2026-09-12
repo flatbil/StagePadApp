@@ -1,4 +1,5 @@
 import UIKit
+import CryptoKit
 
 /// Fetches and disk-caches per-song album art from Apple's iTunes Search API
 /// — a hidden bonus, never something the live-show experience depends on.
@@ -23,8 +24,13 @@ enum AlbumArtLoader {
     private static func cacheFile(for songName: String) -> URL {
         // Song names can contain characters that aren't safe filenames —
         // hash instead of sanitizing so nothing is ever silently dropped or
-        // collides across two differently-punctuated titles.
-        let hash = String(UInt(bitPattern: songName.hashValue), radix: 16)
+        // collides across two differently-punctuated titles. Must be a
+        // stable digest, not Swift's `String.hashValue` — that's randomly
+        // reseeded every process launch (hash-flooding protection), which
+        // would've turned this into a fresh cache miss (and a new orphaned
+        // file) every single time the app opened.
+        let digest = SHA256.hash(data: Data(songName.utf8))
+        let hash = digest.map { String(format: "%02x", $0) }.joined()
         return cacheDirectory.appendingPathComponent("\(hash).jpg")
     }
 
