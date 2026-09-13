@@ -65,6 +65,15 @@ struct StagePadApp: App {
                     }
                     return
                 }
+                // Screenshot/testing automation hook — skips the launch menu
+                // and goes straight to a real bridge connection attempt
+                // (Bonjour + saved-host fallback), same as tapping "Search
+                // for Ableton Bridge" by hand.
+                if ProcessInfo.processInfo.arguments.contains("-UITestAutoConnect") {
+                    hasSeenOnboarding = true
+                    bridge.connect()
+                    return
+                }
                 if !hasSeenOnboarding { showOnboarding = true }
             }
             .fullScreenCover(isPresented: $showOnboarding) {
