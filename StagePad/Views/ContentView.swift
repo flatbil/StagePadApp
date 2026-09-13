@@ -56,6 +56,16 @@ struct ContentView: View {
         return bridge.resolvedColor(for: bridge.songs[bridge.currentSongIndex], index: bridge.currentSongIndex)
     }
 
+    /// The device's actual screen corner radius, so the "in command" border
+    /// below hugs the real bezel curve instead of cutting across it. iOS has
+    /// no public API for this — `_displayCornerRadius` is a long-standing,
+    /// widely-used KVC read on UIScreen (not a linked private symbol, so it
+    /// doesn't trip App Review's binary scan), with a safe fallback to the
+    /// old fixed value for any device/OS where the key isn't there.
+    private var deviceCornerRadius: CGFloat {
+        (UIScreen.main.value(forKey: "_displayCornerRadius") as? CGFloat).flatMap { $0 > 0 ? $0 : nil } ?? 20
+    }
+
     /// Hidden bonus, not a setting: real album art when BridgeService has
     /// found and cached one for the current song. nil (no network, no
     /// iTunes match, still fetching) just means the color tint below is
@@ -73,14 +83,33 @@ struct ContentView: View {
                 // Heavily blurred + darkened so it reads as ambiance behind
                 // the UI, not competing with it for attention or hurting
                 // the readability every foreground element depends on.
-                Image(uiImage: art)
-                    .resizable()
-                    .scaledToFill()
-                    .blur(radius: 45)
-                    .overlay(Color.black.opacity(0.55))
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.6), value: bridge.currentSongIndex)
+                //
+                // GeometryReader + an explicit .frame() + .clipped() rather
+                // than letting scaledToFill size itself off the ZStack: iTunes
+                // art is always a 600x600 square, and .scaledToFill() on an
+                // iPad's much taller/wider screen has to scale it up ~4-5x to
+                // cover both dimensions — and per Apple's own documented
+                // caveat, fill mode can paint past its container's bounds in
+                // the dimension it isn't cropping. On device this showed up as
+                // an oversized, blotchy wash bleeding unevenly across the
+                // section grid instead of a subtle backdrop. The frame pins
+                // the image to exactly the screen size and .clipped() is a
+                // hard guarantee it can never render outside that — the app's
+                // scale must never exceed the screen it's on. Blur bumped
+                // 45 -> 90 since the old radius was sized for the original
+                // 600px art, not for it already being blown up 4-5x.
+                GeometryReader { geo in
+                    Image(uiImage: art)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                        .blur(radius: 90)
+                        .overlay(Color.black.opacity(0.6))
+                }
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.6), value: bridge.currentSongIndex)
             } else if let tint = currentSongBackgroundColor {
                 tint.opacity(0.22)
                     .ignoresSafeArea()
@@ -149,7 +178,7 @@ struct ContentView: View {
         }
         .overlay {
             if isInCommand {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: deviceCornerRadius, style: .continuous)
                     .strokeBorder(Color.green, lineWidth: 3)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
