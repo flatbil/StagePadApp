@@ -66,14 +66,15 @@ struct ContentView: View {
         (UIScreen.main.value(forKey: "_displayCornerRadius") as? CGFloat).flatMap { $0 > 0 ? $0 : nil } ?? 20
     }
 
-    /// Hidden bonus, not a setting: real album art when BridgeService has
-    /// found and cached one for the current song. nil (no network, no
-    /// iTunes match, still fetching) just means the color tint below is
-    /// what shows instead — this is a richer option layered on top of
-    /// that, never a replacement it depends on.
+    /// Background image for the current song, highest priority first: a
+    /// user-picked image (Settings → Song Backgrounds) beats the auto-fetched
+    /// iTunes art, which beats nothing at all (falls through to the color
+    /// tint below). nil here just means neither is set/loaded yet — never an
+    /// error state, and never something this screen depends on.
     private var currentSongArt: UIImage? {
         guard bridge.songs.indices.contains(bridge.currentSongIndex) else { return nil }
-        return bridge.albumArt[bridge.songs[bridge.currentSongIndex].name]
+        let name = bridge.songs[bridge.currentSongIndex].name
+        return bridge.customSongImages[name] ?? bridge.albumArt[name]
     }
 
     var body: some View {
@@ -96,16 +97,21 @@ struct ContentView: View {
                 // (~1.5-2x on an iPad, not 4-5x) — the art stays recognizable,
                 // letterboxed top/bottom or side/side into the black base
                 // layer, which the blur then feathers into rather than
-                // needing to hide a zoomed-in mess. Blur back down from the
-                // 90 that was compensating for the old forced-cover zoom.
+                // needing to hide a zoomed-in mess. Blur/overlay retuned again
+                // (40/0.5 -> 20/0.25) after confirming live against Way
+                // Maker's cover (a high-contrast black & white photo) that the
+                // old values crushed it into an unrecognizable gray fog —
+                // simulated the exact render pipeline locally across a grid of
+                // blur/overlay values against the real downloaded artwork to
+                // pick this pair rather than guess through more rebuilds.
                 GeometryReader { geo in
                     Image(uiImage: art)
                         .resizable()
                         .scaledToFit()
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
-                        .blur(radius: 40)
-                        .overlay(Color.black.opacity(0.5))
+                        .blur(radius: 20)
+                        .overlay(Color.black.opacity(0.25))
                 }
                 .ignoresSafeArea()
                 .transition(.opacity)
