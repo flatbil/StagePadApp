@@ -1,22 +1,20 @@
 import SwiftUI
 
-// Reordering is a real hazard, not just a nice-to-have gate: a live set with
-// nine songs named "Song 1"..."Song 9" got silently shuffled by an accidental
-// touch, auto-advanced into the wrong one, and nobody noticed until it had
-// already happened — no unmistakable feedback at the moment it engaged, and
-// the 400ms hold that gated it wasn't enough friction on its own.
+// Reordering: hold a pill to pick it up and drag, tap to select — no
+// separate "Edit Order" mode button.
 //
-// Two layers now, deliberately redundant:
-//   1. Dragging is only POSSIBLE at all in Edit Order mode, entered/exited
-//      explicitly via the button below the pills. Outside that mode, a touch
-//      can only ever be a tap-to-select — there is no gesture code path that
-//      can start a reorder, not "a slow one," so a live-show touch literally
-//      cannot shuffle anything no matter how it's held.
-//   2. Inside Edit Order mode, a hold-then-drag gate still exists (now 700ms,
-//      up from 400ms) as a second speed bump against grazing a pill while
-//      just looking at the list — and the moment it actually engages gets an
-//      unmissable visual pop, deliberately WITHOUT haptics (asked for none).
-
+// NOTE — this reverts part of a deliberate safety fix (2026-09-11, see
+// PROJECT git history "Require explicit Edit Order mode before setlist
+// reordering is possible"): a live 9-song set got silently reordered by an
+// accidental touch mid-service, auto-advanced into the wrong song, and
+// nobody noticed until after. The Edit Order mode gate made reordering
+// physically unreachable outside an explicit toggle, which fully closed
+// that hole. Removed 2026-09-12 at the user's request (the button's
+// placement was also overlapping the last pill — see git history) in favor
+// of the simpler, pre-incident long-press-to-drag gesture. The 700ms hold
+// (up from the original 400ms) is kept as the only remaining friction
+// against an accidental touch — this is real risk reintroduced, not a
+// wash: worth confirming this tradeoff is intentional before a live show.
 struct SongSelectorView: View {
     let songs: [Song]
     @Binding var setlistOrder: [Int]
@@ -24,7 +22,6 @@ struct SongSelectorView: View {
     let currentSongIndex: Int
     let onSelect: (Int) -> Void
 
-    @State private var isEditingOrder: Bool = false
     @State private var draggingPos: Int? = nil      // index in setlistOrder being dragged
     @State private var fingerX:     CGFloat = 0     // finger X in "pillRow" coord space
     @State private var pillWidth:   CGFloat = 100   // captured at drag start
@@ -78,12 +75,6 @@ struct SongSelectorView: View {
                             DragGesture(minimumDistance: 0,
                                         coordinateSpace: .named("pillRow"))
                                 .onChanged { value in
-                                    // Outside Edit Order mode this gesture does
-                                    // nothing at all — not "waits for a longer
-                                    // hold," genuinely nothing — so no touch,
-                                    // however it's held, can start a reorder.
-                                    guard isEditingOrder else { return }
-
                                     // ── Touch-down (first event) ──────────
                                     if activePill == nil {
                                         activePill = songIdx
@@ -115,13 +106,6 @@ struct SongSelectorView: View {
                                     fingerX = min(max(value.location.x, lo), hi)
                                 }
                                 .onEnded { _ in
-                                    guard isEditingOrder else {
-                                        // Any release outside Edit Order mode is
-                                        // just a tap — there's no other gesture
-                                        // this could have been.
-                                        onSelect(songIdx)
-                                        return
-                                    }
                                     guard activePill == songIdx else { return }
                                     pressTask?.cancel()
                                     pressTask = nil
@@ -141,10 +125,10 @@ struct SongSelectorView: View {
                                                 order,
                                                 forKey: "setlistOrder_\(order.count)")
                                         }
+                                    } else {
+                                        // Released before the hold fired — a tap, not a drag.
+                                        onSelect(songIdx)
                                     }
-                                    // Quick release before the hold fired: deliberately
-                                    // a no-op, not a tap-to-select — Edit Order mode
-                                    // stays single-purpose so it can't also jump songs.
                                     activePill = nil
                                 }
                         )
@@ -182,43 +166,7 @@ struct SongSelectorView: View {
             .coordinateSpace(name: "pillRow")
         }
         .frame(height: 72)
-        // Whole-row tint is the "you are in a different mode right now" cue —
-        // meant to be obvious even at a glance from a few feet away, not just
-        // noticeable up close on the small edit button itself.
-        .background(isEditingOrder ? Color.orange.opacity(0.14) : Color.white.opacity(0.03))
-        .contentShape(Rectangle())
-        .overlay(alignment: .topTrailing) { editOrderButton }
-        .animation(.easeInOut(duration: 0.2), value: isEditingOrder)
-    }
-
-    // Reordering is only ever reachable through here — there is no gesture
-    // path anywhere above that can start one without this being active first.
-    private var editOrderButton: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isEditingOrder.toggle()
-            }
-            if !isEditingOrder {
-                // Leaving mid-drag (e.g. tapping Done with a finger still
-                // down elsewhere) should abandon it, not commit a half-drag.
-                pressTask?.cancel()
-                pressTask = nil
-                activePill = nil
-                draggingPos = nil
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: isEditingOrder ? "checkmark.circle.fill" : "arrow.up.arrow.down.circle")
-                Text(isEditingOrder ? "Done" : "Reorder")
-            }
-            .font(.system(size: 12, weight: .bold, design: .rounded))
-            .foregroundStyle(isEditingOrder ? .black : .white.opacity(0.6))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(Capsule().fill(isEditingOrder ? Color.orange : Color.white.opacity(0.1)))
-        }
-        .buttonStyle(.plain)
-        .padding(6)
+        .background(Color.white.opacity(0.03))
     }
 }
 
