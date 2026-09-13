@@ -8,9 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		02A152A7AEA18936C220FA5C /* TransportBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 862A04FC9C92DA6CFA92581D /* TransportBarView.swift */; };
+		08FADE909CCC724C324B609C /* SongColorsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2BED9A38CCA798C5E9D5B56 /* SongColorsView.swift */; };
 		0EC218C1BCD1705F4C787840 /* BridgeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD2EA10110B3D1CDCB66CA21 /* BridgeService.swift */; };
 		2F9F46DD22E8C6F3A7BB6547 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C535F48C2D66C4A62DCEE0E /* SettingsView.swift */; };
-		08FADE909CCC724C324B609C /* SongColorsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2BED9A38CCA798C5E9D5B56 /* SongColorsView.swift */; };
 		31BEADCAB153F3C11AC9D9BB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A63DCEF02E36D8E1D2C0205D /* ContentView.swift */; };
 		3917CF2830226CF300073E1C /* TrackMixerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3917CF2730226CF300073E1C /* TrackMixerView.swift */; };
 		391B845C30238B8F000976A5 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 391B845B30238B8F000976A5 /* OnboardingView.swift */; };
@@ -19,6 +19,7 @@
 		3997AEF430564D3D00AB9769 /* Color+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3997AEF330564D3D00AB9769 /* Color+Hex.swift */; };
 		3997AEF530564D3D00AB9769 /* AlbumArtLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3997AEF230564D3D00AB9769 /* AlbumArtLoader.swift */; };
 		39BBD7292F91A38700863F9F /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39BBD7282F91A38700863F9F /* PreviewData.swift */; };
+		39FEF4C430566FC600F23FFE /* PCConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39FEF4C330566FC600F23FFE /* PCConfig.swift */; };
 		3B12F65C946337457B85910B /* SectionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5479890EE897488A8BEC95FC /* SectionButton.swift */; };
 		3FD9BB5AD175A0361B15B2CB /* SectionButtonWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BADC25FCA0CCAAA75AF82D6 /* SectionButtonWrapper.swift */; };
 		43238CF4A842AD4E235F04A1 /* SectionGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04029384339C67B67181F3AC /* SectionGridView.swift */; };
@@ -40,8 +41,8 @@
 		3997AEF230564D3D00AB9769 /* AlbumArtLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumArtLoader.swift; sourceTree = "<group>"; };
 		3997AEF330564D3D00AB9769 /* Color+Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Hex.swift"; sourceTree = "<group>"; };
 		39BBD7282F91A38700863F9F /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewData.swift; sourceTree = "<group>"; };
+		39FEF4C330566FC600F23FFE /* PCConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PCConfig.swift; sourceTree = "<group>"; };
 		4C535F48C2D66C4A62DCEE0E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		B2BED9A38CCA798C5E9D5B56 /* SongColorsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongColorsView.swift; sourceTree = "<group>"; };
 		501F33B61668FA8E6DBC3FDD /* InfoBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoBarView.swift; sourceTree = "<group>"; };
 		5479890EE897488A8BEC95FC /* SectionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionButton.swift; sourceTree = "<group>"; };
 		59799FA9D05E29EC0A5CCC5C /* LaunchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
@@ -52,6 +53,7 @@
 		862A04FC9C92DA6CFA92581D /* TransportBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportBarView.swift; sourceTree = "<group>"; };
 		8A1148FF5BC454BFA3CC3F3A /* Song.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Song.swift; sourceTree = "<group>"; };
 		A63DCEF02E36D8E1D2C0205D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B2BED9A38CCA798C5E9D5B56 /* SongColorsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongColorsView.swift; sourceTree = "<group>"; };
 		B580B5381480CD0E2FA6F070 /* SongSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongSelectorView.swift; sourceTree = "<group>"; };
 		BD2EA10110B3D1CDCB66CA21 /* BridgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -78,6 +80,7 @@
 			children = (
 				7B3150C010B9BB0019D3901A /* Assets.xcassets */,
 				6390A0FF8C18EB53765C3658 /* Info.plist */,
+				39FEF4C330566FC600F23FFE /* PCConfig.swift */,
 				674D320082ABDEF45ABCF7EA /* StagePadApp.swift */,
 				A18DE4888B6A01A412E69BAD /* Models */,
 				EF196152279D7051B1A1F952 /* Services */,
@@ -205,6 +208,7 @@
 				3FD9BB5AD175A0361B15B2CB /* SectionButtonWrapper.swift in Sources */,
 				43238CF4A842AD4E235F04A1 /* SectionGridView.swift in Sources */,
 				2F9F46DD22E8C6F3A7BB6547 /* SettingsView.swift in Sources */,
+				39FEF4C430566FC600F23FFE /* PCConfig.swift in Sources */,
 				08FADE909CCC724C324B609C /* SongColorsView.swift in Sources */,
 				8007C5E317C2887AE4133D58 /* Song.swift in Sources */,
 				5CC4E338C02DD4A194430360 /* SongSelectorView.swift in Sources */,
