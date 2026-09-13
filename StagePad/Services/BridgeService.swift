@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import SwiftUI
+import CryptoKit
 
 enum ConnectionState: Equatable {
     case disconnected, connecting, connected, rejected
@@ -145,6 +146,12 @@ final class BridgeService: ObservableObject {
     /// a bad connection. ContentView falls back to the Song Colors tint
     /// for any song missing from this dict.
     @Published var albumArt: [String: UIImage] = [:]
+    /// User-picked background image per song (Settings → Song Backgrounds) —
+    /// takes priority over the auto-fetched iTunes art in albumArt above,
+    /// since it's a deliberate choice rather than a best-guess. Stored on
+    /// disk in Application Support (not Caches — unlike albumArt, this isn't
+    /// something the app can silently re-fetch if the system evicts it).
+    @Published var customSongImages: [String: UIImage] = [:]
     @Published var tempo: Double = 0
     @Published var timeSignatureNumerator: Int = 4
     /// Section queued to jump to (awaiting Ableton's beat-quantized confirmation).
@@ -293,6 +300,47 @@ final class BridgeService: ObservableObject {
     /// from before this feature existed.
     func resolvedColor(for song: Song, index: Int) -> Color {
         songColors[song.name] ?? Song.songColor(for: index)
+    }
+
+    // MARK: - Custom song background images (user-picked, not auto-fetched art)
+
+    private static var customSongImagesDirectory: URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SongBackgroundImages", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    // Same stable-hash approach as AlbumArtLoader's cache — song names aren't
+    // safe filenames, and a per-process-random hash would silently orphan a
+    // user's chosen image every launch instead of ever finding it again.
+    private static func customImageFile(for songName: String) -> URL {
+        let digest = SHA256.hash(data: Data(songName.utf8))
+        let hash = digest.map { String(format: "%02x", $0) }.joined()
+        return customSongImagesDirectory.appendingPathComponent("\(hash).jpg")
+    }
+
+    private func loadCustomSongImages(for songs: [Song]) {
+        for song in songs {
+            guard customSongImages[song.name] == nil else { continue }
+            guard let data = try? Data(contentsOf: Self.customImageFile(for: song.name)),
+                  let image = UIImage(data: data) else { continue }
+            customSongImages[song.name] = image
+        }
+    }
+
+    /// nil removes the custom image, falling back to auto-fetched art (if
+    /// any) then the song's color tint — the same layering as before this
+    /// feature existed, just with one more option ahead of it.
+    func setCustomImage(_ image: UIImage?, forSongNamed name: String) {
+        let file = Self.customImageFile(for: name)
+        if let image, let data = image.jpegData(compressionQuality: 0.85) {
+            try? data.write(to: file)
+            customSongImages[name] = image
+        } else {
+            try? FileManager.default.removeItem(at: file)
+            customSongImages[name] = nil
+        }
     }
 
     /// Populates albumArt for whatever's in the disk cache immediately
@@ -840,6 +888,7 @@ final class BridgeService: ObservableObject {
             let newSongs = (try? JSONDecoder().decode([Song].self, from: songsData)) ?? []
             songs = newSongs
             loadAlbumArt(for: newSongs)
+            loadCustomSongImages(for: newSongs)
             // Reset setlist order when song count changes (new set loaded).
             // Preserve a custom order if the count is unchanged (e.g., cue rename).
             if newSongs.count != setlistOrder.count {

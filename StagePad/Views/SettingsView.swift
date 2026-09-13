@@ -76,7 +76,7 @@ struct SettingsView: View {
                         Image(systemName: "paintpalette")
                             .foregroundStyle(.secondary)
                             .frame(width: 24)
-                        Text("Song Colors")
+                        Text("Song Backgrounds")
                         Spacer()
                         Image(systemName: "chevron.right")
                             .foregroundStyle(.tertiary)
