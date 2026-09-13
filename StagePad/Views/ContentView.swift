@@ -84,28 +84,28 @@ struct ContentView: View {
                 // the UI, not competing with it for attention or hurting
                 // the readability every foreground element depends on.
                 //
-                // GeometryReader + an explicit .frame() + .clipped() rather
-                // than letting scaledToFill size itself off the ZStack: iTunes
-                // art is always a 600x600 square, and .scaledToFill() on an
-                // iPad's much taller/wider screen has to scale it up ~4-5x to
-                // cover both dimensions — and per Apple's own documented
-                // caveat, fill mode can paint past its container's bounds in
-                // the dimension it isn't cropping. On device this showed up as
-                // an oversized, blotchy wash bleeding unevenly across the
-                // section grid instead of a subtle backdrop. The frame pins
-                // the image to exactly the screen size and .clipped() is a
-                // hard guarantee it can never render outside that — the app's
-                // scale must never exceed the screen it's on. Blur bumped
-                // 45 -> 90 since the old radius was sized for the original
-                // 600px art, not for it already being blown up 4-5x.
+                // .scaledToFit(), not .scaledToFill(): iTunes art is always a
+                // 600x600 square, and *covering* an iPad's much taller/wider
+                // screen (fill mode) forces a ~4-5x upscale — confirmed live
+                // as both "way too big" (fill mode can paint past its own
+                // frame per Apple's documented caveat) and, once clipped,
+                // still an oversized, illegible wash even at a heavier blur
+                // radius, because so much of what's on screen was just a few
+                // magnified pixels of the original art. Fit mode scales the
+                // whole square to the screen's *narrower* dimension instead
+                // (~1.5-2x on an iPad, not 4-5x) — the art stays recognizable,
+                // letterboxed top/bottom or side/side into the black base
+                // layer, which the blur then feathers into rather than
+                // needing to hide a zoomed-in mess. Blur back down from the
+                // 90 that was compensating for the old forced-cover zoom.
                 GeometryReader { geo in
                     Image(uiImage: art)
                         .resizable()
-                        .scaledToFill()
+                        .scaledToFit()
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
-                        .blur(radius: 90)
-                        .overlay(Color.black.opacity(0.6))
+                        .blur(radius: 40)
+                        .overlay(Color.black.opacity(0.5))
                 }
                 .ignoresSafeArea()
                 .transition(.opacity)
