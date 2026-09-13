@@ -15,6 +15,7 @@
 		622D86B1A7C3DFB82A60206C /* SectionGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 287DC85CAB15D68B3DC791D2 /* SectionGridView.swift */; };
 		640AC1D1226FBF5B29E500AB /* TempoLightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66E76E7B9E38B2E2F39D4AE /* TempoLightView.swift */; };
 		69764C1C99E25063FD6677B9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC46DFFC426EA2BE66009397 /* SettingsView.swift */; };
+		F6E3D31879FC0C834F7352D1 /* SongColorsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65D9DCF4B718931F60117FE /* SongColorsView.swift */; };
 		6FED3A1826B579AC7DE5C640 /* InfoBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B99792BACB31C6A63D484EC /* InfoBarView.swift */; };
 		770ACC0955DBB9619AAEC076 /* SongSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E368157E5FC39D5C12CC2B2 /* SongSelectorView.swift */; };
 		89091D8E0352FF87FB7692A3 /* TransportBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 026080DD6E8322D9F27335A4 /* TransportBarView.swift */; };
@@ -47,6 +48,7 @@
 		AE4E615F4ED007C22F4E0875 /* LaunchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
 		BA51D1698B247E089B9646F2 /* StagePadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StagePadApp.swift; sourceTree = "<group>"; };
 		BC46DFFC426EA2BE66009397 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		D65D9DCF4B718931F60117FE /* SongColorsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongColorsView.swift; sourceTree = "<group>"; };
 		BDA9E81DBD837A13F9E7B7DA /* Color+Hex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "Color+Hex.swift"; sourceTree = "<group>"; };
 		C04C6F2B52FF53FBDAD436C0 /* Song.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Song.swift; sourceTree = "<group>"; };
 		E66E76E7B9E38B2E2F39D4AE /* TempoLightView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TempoLightView.swift; sourceTree = "<group>"; };
@@ -82,6 +84,7 @@
 				FEF956B8DED692F5BFC08F14 /* SectionButtonWrapper.swift */,
 				287DC85CAB15D68B3DC791D2 /* SectionGridView.swift */,
 				BC46DFFC426EA2BE66009397 /* SettingsView.swift */,
+				D65D9DCF4B718931F60117FE /* SongColorsView.swift */,
 				0E368157E5FC39D5C12CC2B2 /* SongSelectorView.swift */,
 				026080DD6E8322D9F27335A4 /* TransportBarView.swift */,
 				539A0C07ACBF7A088092D78E /* OnboardingView.swift */,
@@ -198,6 +201,7 @@
 				064D4FE7F178064DBEF163B3 /* SectionButtonWrapper.swift in Sources */,
 				622D86B1A7C3DFB82A60206C /* SectionGridView.swift in Sources */,
 				69764C1C99E25063FD6677B9 /* SettingsView.swift in Sources */,
+				F6E3D31879FC0C834F7352D1 /* SongColorsView.swift in Sources */,
 				D78CC0908853294EFEF182DA /* Song.swift in Sources */,
 				770ACC0955DBB9619AAEC076 /* SongSelectorView.swift in Sources */,
 				A20F00C210A3A0B2DBF4CD52 /* StagePadApp.swift in Sources */,
