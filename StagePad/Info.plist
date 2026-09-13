@@ -38,6 +38,14 @@
 		<key>UIImageRespectsSafeAreaInsets</key>
 		<true/>
 	</dict>
+	<!-- A live performance controller has no business running in iPad Split
+	     View/Slide Order — declaring that removes the "must support all
+	     orientations for multitasking" requirement entirely (per Apple's own
+	     build warning: "...unless the app requires full screen"), which is
+	     the actual, semantically correct fix rather than fighting the
+	     orientation list further. -->
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
