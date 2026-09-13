@@ -13,7 +13,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>CFBundleVersion</key>
 	<string>20260912</string>
 	<key>NSAppTransportSecurity</key>
@@ -38,12 +38,26 @@
 		<key>UIImageRespectsSafeAreaInsets</key>
 		<true/>
 	</dict>
+	<!-- Base key must list all four orientations, including upside-down —
+	     Apple's validator requires it for iPad multitasking (Split View /
+	     Slide Over) support regardless of the ~ipad override below. This
+	     key is what actually governs iPhone (no idiom-specific override
+	     exists for iPhone), and is a fallback for iPad contexts the ~ipad
+	     key doesn't cover (e.g. a multitasked pane can rotate independent
+	     of the single-fullscreen-app restriction). -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<!-- iPad-specific override deliberately excludes upside-down: a
+	     physically flipped/bumped stage iPad mirroring its whole UI mid-
+	     song is a real hazard, not a cosmetic one — confirmed live
+	     2026-09-12. This is what actually governs normal (non-multitasked,
+	     fullscreen) iPad presentation, which is how this app is used in
+	     practice. -->
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
