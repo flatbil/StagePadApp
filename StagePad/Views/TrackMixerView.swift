@@ -62,6 +62,14 @@ struct TrackMixerView: View {
                         // back." Removed rather than debounced, since one row =
                         // one action is the less surprising interaction anyway.
                         .opacity(bridge.isPrimary ? 1.0 : 0.6)
+                        // Alternating row tint — with the meter bar gone, adjacent
+                        // rows had nothing but a hairline separator telling them
+                        // apart. track.id is the track's own Ableton index, so
+                        // this alternates by actual track order even if a row is
+                        // ever missing from the array (malformed bridge data).
+                        .listRowBackground(track.id % 2 == 0
+                            ? Color.clear
+                            : Color.white.opacity(0.045))
                     }
                 }
             }
