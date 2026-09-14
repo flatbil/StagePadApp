@@ -139,6 +139,18 @@ final class BridgeService: ObservableObject {
     @Published var songColors: [String: Color] = [:] {
         didSet { saveSongColors() }
     }
+    /// Whether switching songs automatically re-applies that song's saved
+    /// track-mute preset (Settings). On by default, matching how this has
+    /// always worked. Some teams found the automatic switching itself a
+    /// live-show risk and worked around it by keeping every song's mutes
+    /// identical (2026-09-14: "a very nerve wracking scenario") — this
+    /// toggle makes that an explicit choice instead of a manual workaround.
+    /// Gated at the single point mutes actually get applied
+    /// (applyTrackPreset), not at each call site, so both the
+    /// state-refresh and song-change paths are covered by one flag.
+    @Published var perSongMutesEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(perSongMutesEnabled, forKey: "perSongMutesEnabled") }
+    }
     /// Hidden bonus, not a setting: per-song album art fetched from iTunes,
     /// keyed by song name. Disk-cached by AlbumArtLoader — never
     /// re-fetched once found, and simply absent (not an error state) for
@@ -246,6 +258,11 @@ final class BridgeService: ObservableObject {
     init() {
         loadTrustedHosts()
         loadSongColors()
+        // Defaults to true (matches existing UserDefaults.bool(forKey:)
+        // behavior for a never-set key) — only load an explicit false.
+        if UserDefaults.standard.object(forKey: "perSongMutesEnabled") != nil {
+            perSongMutesEnabled = UserDefaults.standard.bool(forKey: "perSongMutesEnabled")
+        }
     }
 
     // MARK: - Trusted hosts (saved, named bridge IPs)
@@ -1138,6 +1155,10 @@ final class BridgeService: ObservableObject {
     }
 
     private func applyTrackPreset(for songName: String) {
+        // Saving still happens unconditionally in saveTrackPreset() — only
+        // the automatic re-apply on song change is gated, so re-enabling
+        // this later picks up wherever each song's mutes were last set.
+        guard perSongMutesEnabled else { return }
         let key = "trackMutes_\(songName)"
         guard let saved = UserDefaults.standard.array(forKey: key) as? [Bool],
               !tracks.isEmpty else { return }
