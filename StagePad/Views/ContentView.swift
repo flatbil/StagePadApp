@@ -97,21 +97,24 @@ struct ContentView: View {
                 // (~1.5-2x on an iPad, not 4-5x) — the art stays recognizable,
                 // letterboxed top/bottom or side/side into the black base
                 // layer, which the blur then feathers into rather than
-                // needing to hide a zoomed-in mess. Blur/overlay retuned again
-                // (40/0.5 -> 20/0.25) after confirming live against Way
-                // Maker's cover (a high-contrast black & white photo) that the
-                // old values crushed it into an unrecognizable gray fog —
-                // simulated the exact render pipeline locally across a grid of
-                // blur/overlay values against the real downloaded artwork to
-                // pick this pair rather than guess through more rebuilds.
+                // needing to hide a zoomed-in mess. Blur/overlay retuned a
+                // second time (20/0.25 -> 6/0.15) after the user confirmed
+                // live it still read as "SO blurry" / "zoomed in too far" —
+                // every foreground element (section buttons, info bar, song
+                // pills, transport bar) already carries its own solid/near-
+                // solid fill independent of this backdrop, so nothing here
+                // actually depends on a heavy blur for legibility; it was
+                // over-applied well past the point that mattered. Simulated
+                // against the real downloaded artwork again before picking
+                // this pair — recognizable as an actual photo now, not fog.
                 GeometryReader { geo in
                     Image(uiImage: art)
                         .resizable()
                         .scaledToFit()
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
-                        .blur(radius: 20)
-                        .overlay(Color.black.opacity(0.25))
+                        .blur(radius: 6)
+                        .overlay(Color.black.opacity(0.15))
                 }
                 .ignoresSafeArea()
                 .transition(.opacity)
