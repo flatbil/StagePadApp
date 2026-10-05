@@ -89,33 +89,6 @@ struct SettingsView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .padding(.horizontal)
 
-                // Per-song track mutes — off means mutes never change on
-                // their own; only a direct tap on a track changes anything.
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Track Mutes")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal)
-                        .padding(.bottom, 6)
-
-                    VStack(spacing: 0) {
-                        Toggle(isOn: $bridge.perSongMutesEnabled) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Remember mutes per song")
-                                Text(bridge.perSongMutesEnabled
-                                     ? "Switching songs re-applies that song's saved mute settings automatically."
-                                     : "Off — mutes stay exactly as set until you tap a track yourself, even when you switch songs.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding()
-                    }
-                    .background(Color(.secondarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .padding(.horizontal)
-                }
-
                 // Connection info
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Auto-Discovery")

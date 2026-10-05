@@ -139,18 +139,6 @@ final class BridgeService: ObservableObject {
     @Published var songColors: [String: Color] = [:] {
         didSet { saveSongColors() }
     }
-    /// Whether switching songs automatically re-applies that song's saved
-    /// track-mute preset (Settings). On by default, matching how this has
-    /// always worked. Some teams found the automatic switching itself a
-    /// live-show risk and worked around it by keeping every song's mutes
-    /// identical (2026-09-14: "a very nerve wracking scenario") — this
-    /// toggle makes that an explicit choice instead of a manual workaround.
-    /// Gated at the single point mutes actually get applied
-    /// (applyTrackPreset), not at each call site, so both the
-    /// state-refresh and song-change paths are covered by one flag.
-    @Published var perSongMutesEnabled: Bool = true {
-        didSet { UserDefaults.standard.set(perSongMutesEnabled, forKey: "perSongMutesEnabled") }
-    }
     /// Hidden bonus, not a setting: per-song album art fetched from iTunes,
     /// keyed by song name. Disk-cached by AlbumArtLoader — never
     /// re-fetched once found, and simply absent (not an error state) for
@@ -258,11 +246,6 @@ final class BridgeService: ObservableObject {
     init() {
         loadTrustedHosts()
         loadSongColors()
-        // Defaults to true (matches existing UserDefaults.bool(forKey:)
-        // behavior for a never-set key) — only load an explicit false.
-        if UserDefaults.standard.object(forKey: "perSongMutesEnabled") != nil {
-            perSongMutesEnabled = UserDefaults.standard.bool(forKey: "perSongMutesEnabled")
-        }
     }
 
     // MARK: - Trusted hosts (saved, named bridge IPs)
@@ -931,19 +914,12 @@ final class BridgeService: ObservableObject {
         }
 
         // 2. Track list — present in state messages and dedicated tracks messages.
-        let rawTracks = json["tracks"] as? [[String: Any]]
-        if let rawTracks {
-            // If this same message is also changing the current song, don't
-            // reapply a preset here against the stale pre-change song index —
-            // applyTransport's own "song changed" branch below already does
-            // this correctly, against the new index, moments later. Doing it
-            // here too, against the wrong song, is exactly what caused mute
-            // state to sometimes flip back right after switching songs: two
-            // contradicting corrections (old song's preset, then the new
-            // song's) racing each other over the network.
-            let incomingSongIndex = json["current_song_index"] as? Int
-            let songIsChanging = incomingSongIndex != nil && incomingSongIndex != currentSongIndex
-            applyTracks(rawTracks, applyPreset: type == "state" && !songIsChanging)
+        // Mirrors Ableton's real track state as reported by the bridge only —
+        // never adjusted or reinterpreted based on which song is active. See
+        // BridgeService header note on why the old per-song mute preset
+        // system was removed entirely.
+        if let rawTracks = json["tracks"] as? [[String: Any]] {
+            applyTracks(rawTracks)
         }
 
         // 3. Lightweight tracks-only update (mute toggle confirmed by bridge).
@@ -965,15 +941,12 @@ final class BridgeService: ObservableObject {
         )
     }
 
-    private func applyTracks(_ raw: [[String: Any]], applyPreset: Bool) {
+    private func applyTracks(_ raw: [[String: Any]]) {
         tracks = raw.compactMap { d in
             guard let idx = d["index"] as? Int,
                   let name = d["name"] as? String,
                   let muted = d["muted"] as? Bool else { return nil }
             return BridgeTrack(id: idx, name: name, isMuted: muted)
-        }
-        if applyPreset, currentSongIndex >= 0, songs.indices.contains(currentSongIndex) {
-            applyTrackPreset(for: songs[currentSongIndex].name)
         }
     }
 
@@ -1060,12 +1033,11 @@ final class BridgeService: ObservableObject {
             if let sectionIndex { currentSectionIndex = sectionIndex }
             if (currentSongIndex != prevSong || currentSectionIndex != prevSection || forceActivate),
                currentSongIndex >= 0, currentSectionIndex >= 0 {
-                // New song → reset measured tempo and apply saved track preset.
+                // New song → reset measured tempo. Track mutes are never
+                // touched on song change — see header note on why the
+                // per-song mute preset system was removed entirely.
                 if currentSongIndex != prevSong {
                     interpolationTempo = 0
-                    if songs.indices.contains(currentSongIndex) {
-                        applyTrackPreset(for: songs[currentSongIndex].name)
-                    }
                 }
                 // In live mode the section arriving at the queued target IS the confirmation.
                 if currentSongIndex == queuedSongIndex && currentSectionIndex == queuedSectionIndex {
@@ -1139,35 +1111,20 @@ final class BridgeService: ObservableObject {
         send(["type": "jump", "song_index": songIndex, "section_index": sectionIndex])
     }
 
+    /// Mutes/unmutes a track directly, exactly as a tap on the real Ableton
+    /// mixer would. Deliberately stateless beyond this one action: MD Buddy
+    /// used to remember a mute pattern per song and silently reapply it on
+    /// every song change, which meant a mute someone set live — by hand, on
+    /// purpose — could flip back the moment the set moved to the next song.
+    /// Removed entirely (2026-10-05) after that caused real problems live —
+    /// mute state should only ever change because someone directly set it,
+    /// here or in Ableton itself, never because of which song is playing.
     func toggleTrackMute(trackIndex: Int) {
         guard isPrimary else { return }
         guard let idx = tracks.firstIndex(where: { $0.id == trackIndex }) else { return }
         let newMuted = !tracks[idx].isMuted
         tracks[idx].isMuted = newMuted
         send(["type": "mute_track", "track_index": trackIndex, "muted": newMuted])
-        saveTrackPreset()
-    }
-
-    private func saveTrackPreset() {
-        guard currentSongIndex >= 0, songs.indices.contains(currentSongIndex) else { return }
-        let key = "trackMutes_\(songs[currentSongIndex].name)"
-        UserDefaults.standard.set(tracks.map(\.isMuted), forKey: key)
-    }
-
-    private func applyTrackPreset(for songName: String) {
-        // Saving still happens unconditionally in saveTrackPreset() — only
-        // the automatic re-apply on song change is gated, so re-enabling
-        // this later picks up wherever each song's mutes were last set.
-        guard perSongMutesEnabled else { return }
-        let key = "trackMutes_\(songName)"
-        guard let saved = UserDefaults.standard.array(forKey: key) as? [Bool],
-              !tracks.isEmpty else { return }
-        for (i, muted) in saved.enumerated() {
-            guard i < tracks.count else { break }
-            guard tracks[i].isMuted != muted else { continue }
-            tracks[i].isMuted = muted
-            send(["type": "mute_track", "track_index": tracks[i].id, "muted": muted])
-        }
     }
 
     func reorderSetlist(from source: Int, to destination: Int) {
